@@ -9,5 +9,10 @@ func main() {
 			"message": "pong",
 		})
 	})
-	r.Run(":80") // listen and serve on 0.0.0.0:8080
+	r.GET("/pong", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "ping",
+		})
+	})
+	r.Run(":8080") // listen and serve on 0.0.0.0:8080
 }
