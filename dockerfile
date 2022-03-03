@@ -10,7 +10,9 @@ RUN apt-get update -y \
   && unzip Radiance_012cb178_Linux.zip \
   && tar -C . -xzf radiance-5.3.012cb17835-Linux.tar.gz \
   && mv radiance-5.3.012cb17835-Linux/usr/local/radiance /usr/local/ \
-  && rm -rf radiance-5.3.012cb17835-Linux Radiance_012cb178_Linux.zip radiance-5.3.012cb17835-Linux.tar.gz
+  && rm -rf radiance-5.3.012cb17835-Linux Radiance_012cb178_Linux.zip radiance-5.3.012cb17835-Linux.tar.gz \
+  && export PATH=/usr/local/radiance/bin:$PATH
+
 
 # radiance env variables
 ENV RADIANCEPATH /usr/local/radiance
@@ -27,9 +29,10 @@ WORKDIR $APIPATH
 COPY go.mod .
 COPY go.sum .
 COPY main.go .
+COPY scripts ./scripts
 
-RUN \ 
-  go mod tidy \
+RUN chmod +x ./scripts/sleep.sh \ 
+  && go mod tidy \
   && go build . \
   && echo $PATH
 
