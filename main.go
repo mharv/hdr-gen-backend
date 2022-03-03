@@ -1,48 +1,20 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"os/exec"
 
-	"github.com/gin-gonic/gin"
+	"hdr-gen-backend/database"
+	"hdr-gen-backend/router"
 )
 
 func main() {
-	r := gin.Default()
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
-	r.GET("/pong", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "ping",
-		})
-	})
-	r.GET("/rtrace", func(c *gin.Context) {
 
-		out, err := exec.Command("rtrace", "-defaults").Output()
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Print(string(out))
+	database.ConnectDatabase()
 
-		c.JSON(200, gin.H{
-			"message": string(out),
-		})
-	})
-	r.GET("/sleep", func(c *gin.Context) {
+	routerInstance := router.NewRouter()
 
-		out, err := exec.Command("./scripts/sleep.sh").Output()
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Print(string(out))
+	log.Fatal(routerInstance.Run(":8080"))
 
-		c.JSON(200, gin.H{
-			"message": string(out),
-		})
-	})
-	r.Run(":8080") // listen and serve on 0.0.0.0:8080
+	// r.SetTrustedProxies([]string{"127.0.0.1"})
+
 }

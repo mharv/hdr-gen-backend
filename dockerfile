@@ -30,6 +30,11 @@ COPY go.mod .
 COPY go.sum .
 COPY main.go .
 COPY scripts ./scripts
+COPY database ./database
+COPY handlers ./handlers
+COPY models ./models
+COPY router ./router
+COPY .env .
 
 RUN chmod +x ./scripts/sleep.sh \ 
   && go mod tidy \
