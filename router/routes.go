@@ -71,6 +71,12 @@ var routes = Routes{
 		handlers.GetImagesProjectId,
 	},
 
+	{
+		"UploadImagesToServer",
+		http.MethodPost,
+		"/uploadImages",
+		handlers.UploadImagesToServer,
+	},
 	//test routes
 	{
 		"Rtrace",

@@ -55,7 +55,7 @@ func ConnectToStorageContainer(accountName, accountKey string) azblob.ContainerC
 func UploadFileToBlobStore(fileName, directory string, container azblob.ContainerClient) {
 
 	// read file from /tmp
-	file, err := os.Open(directory + "/" + fileName)
+	file, err := os.Open(directory + fileName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func DownloadFileToLocalDir(fileName, directory string, container azblob.Contain
 
 	permissions := 0644
 
-	err = ioutil.WriteFile(directory+"/"+fileName, downloadedData.Bytes(), fs.FileMode(permissions))
+	err = ioutil.WriteFile(directory+fileName, downloadedData.Bytes(), fs.FileMode(permissions))
 	if err != nil {
 		log.Fatal(err)
 	} else {
