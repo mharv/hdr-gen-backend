@@ -8,7 +8,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
@@ -22,12 +25,7 @@ var containerName = goDotEnvVariable("AZURE_STORAGE_CONTAINER_NAME")
 var tmpDirName = goDotEnvVariable("LOCAL_TEMP_DIRECTORY_NAME")
 
 func ConnectBlobStorage() {
-
-	container := ConnectToStorageContainer(accountName, accountKey)
-
-	DownloadFileToLocalDir("test.jpg", tmpDirName, container)
-
-	UploadFileToBlobStore("testUpload.jpg", tmpDirName, container)
+	fmt.Println("xtest")
 
 }
 
@@ -52,7 +50,8 @@ func ConnectToStorageContainer(accountName, accountKey string) azblob.ContainerC
 	return container
 }
 
-func UploadFileToBlobStore(fileName, directory string, container azblob.ContainerClient) {
+func UploadFileToBlobStore(fileName, directory string) string {
+	container := ConnectToStorageContainer(accountName, accountKey)
 
 	// read file from /tmp
 	file, err := os.Open(directory + fileName)
@@ -66,24 +65,31 @@ func UploadFileToBlobStore(fileName, directory string, container azblob.Containe
 
 	buffer := make([]byte, size)
 
+	extension := filepath.Ext(fileName)
+	fileNameOnly := strings.TrimSuffix(fileName, extension)
+	blobFileName := fileNameOnly + "-" + uuid.New().String() + extension
+
 	// read file content to buffer
 	file.Read(buffer)
 
 	fileBytes := bytes.NewReader(buffer)
 
 	// Create a new BlockBlobClient from the ContainerClient
-	blockBlob := container.NewBlockBlobClient(fileName)
+	blockBlob := container.NewBlockBlobClient(blobFileName)
 
 	// Upload data to the block blob
 	_, err = blockBlob.Upload(context.TODO(), streaming.NopCloser(fileBytes), nil)
 	if err != nil {
 		log.Fatal(err)
+		return fmt.Sprintf("%s was not saved to the blob store", blobFileName)
 	} else {
-		fmt.Printf("file: %s from directory: %s uploaded to blob\n", fileName, directory)
+		fmt.Printf("file: %s from directory: %s uploaded to blob as: %s \n", fileName, directory, blobFileName)
+		return blobFileName
 	}
 }
 
-func DownloadFileToLocalDir(fileName, directory string, container azblob.ContainerClient) {
+func DownloadFileToLocalDir(fileName, directory string) {
+	container := ConnectToStorageContainer(accountName, accountKey)
 
 	// Create a new BlockBlobClient from the ContainerClient
 	blockBlob := container.NewBlockBlobClient(fileName)

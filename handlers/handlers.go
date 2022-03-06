@@ -1,14 +1,17 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"hdr-gen-backend/database"
 	"hdr-gen-backend/models"
+	"hdr-gen-backend/storage"
 
 	"github.com/joho/godotenv"
 
@@ -61,9 +64,14 @@ func GetImagesProjectId(c *gin.Context) {
 }
 
 func UploadImagesToServer(c *gin.Context) {
+	// upload bracketed set, create hdr, store to blob
+	imageName := c.Params.ByName("imageName")
+	fullPath := tmpDirName + imageName + "/"
 
-	os.MkdirAll(tmpDirName, os.ModePerm)
+	fmt.Println(imageName)
+	os.MkdirAll(fullPath, os.ModePerm)
 
+	//upload bracketed set
 	form, err := c.MultipartForm()
 	if err != nil {
 		c.String(http.StatusBadRequest, "get form err: %s", err.Error())
@@ -84,16 +92,38 @@ func UploadImagesToServer(c *gin.Context) {
 
 		newFileName := filename + "-" + uuid.New().String() + extension
 
-		if err := c.SaveUploadedFile(file, tmpDirName+newFileName); err != nil {
+		if err := c.SaveUploadedFile(file, fullPath+newFileName); err != nil {
 			c.String(http.StatusBadRequest, "upload file err: %s", err.Error())
 			return
 		}
 	}
 
-	// File saved successfully. Return proper result
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Your files have been successfully uploaded.",
-	})
+	// TODO create hdr file
+	out, err := exec.Command("./scripts/runhdr.sh", imageName).Output()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err,
+		})
+	}
+
+	fmt.Println(string(out))
+
+	// TODO store to blob
+	blobFileName := storage.UploadFileToBlobStore(imageName+".hdr", "/tmp/hdrgen/"+imageName+"/pic/")
+
+	// save to sql db
+	var image models.Image
+
+	image.ProjectId = 1
+	image.Name = blobFileName
+	image.Type = "HDR"
+
+	if result := database.DB.Create(&image); result.Error != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+	} else {
+		c.JSON(http.StatusOK, image)
+	}
+
 }
 
 func goDotEnvVariable(key string) string {
