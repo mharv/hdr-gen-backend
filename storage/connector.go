@@ -3,35 +3,35 @@ package storage
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/fs"
 	"io/ioutil"
-
-	"fmt"
 	"log"
 	"os"
 
 	"github.com/joho/godotenv"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 )
 
 var accountName = goDotEnvVariable("AZURE_STORAGE_ACCOUNT_NAME")
 var accountKey = goDotEnvVariable("AZURE_STORAGE_PRIMARY_ACCOUNT_KEY")
-
 var containerUrl = goDotEnvVariable("AZURE_STORAGE_CONTAINER_URL")
 var containerName = goDotEnvVariable("AZURE_STORAGE_CONTAINER_NAME")
+var tmpDirName = goDotEnvVariable("LOCAL_TEMP_DIRECTORY_NAME")
 
 func ConnectBlobStorage() {
 
-	service := connectToStorage(accountName, accountKey)
+	container := connectToStorageContainer(accountName, accountKey)
 
-	container := service.NewContainerClient(containerName)
+	downloadFileToLocalDir("test.jpg", tmpDirName, container)
 
-	downloadFileToLocalDir("test.jpg", "/tmp", container)
+	uploadFileToBlobStore("testUpload.jpg", tmpDirName, container)
 
 }
 
-func connectToStorage(accountName, accountKey string) azblob.ServiceClient {
+func connectToStorageContainer(accountName, accountKey string) azblob.ContainerClient {
 	cred, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		log.Fatal(err)
@@ -46,7 +46,41 @@ func connectToStorage(accountName, accountKey string) azblob.ServiceClient {
 	} else {
 		fmt.Println(service)
 	}
-	return service
+
+	container := service.NewContainerClient(containerName)
+
+	return container
+}
+
+func uploadFileToBlobStore(fileName, directory string, container azblob.ContainerClient) {
+
+	// read file from /tmp
+	file, err := os.Open(directory + "/" + fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	fileInfo, _ := file.Stat()
+	var size int64 = fileInfo.Size()
+
+	buffer := make([]byte, size)
+
+	// read file content to buffer
+	file.Read(buffer)
+
+	fileBytes := bytes.NewReader(buffer)
+
+	// Create a new BlockBlobClient from the ContainerClient
+	blockBlob := container.NewBlockBlobClient(fileName)
+
+	// Upload data to the block blob
+	_, err = blockBlob.Upload(context.TODO(), streaming.NopCloser(fileBytes), nil)
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		fmt.Printf("file: %s from directory: %s uploaded to blob\n", fileName, directory)
+	}
 }
 
 func downloadFileToLocalDir(fileName, directory string, container azblob.ContainerClient) {
@@ -76,7 +110,7 @@ func downloadFileToLocalDir(fileName, directory string, container azblob.Contain
 
 	err = ioutil.WriteFile(directory+"/"+fileName, downloadedData.Bytes(), fs.FileMode(permissions))
 	if err != nil {
-		// handle error
+		log.Fatal(err)
 	} else {
 		fmt.Printf("file: %s downloaded to directory: %s \n", fileName, directory)
 	}
