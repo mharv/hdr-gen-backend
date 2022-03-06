@@ -23,15 +23,15 @@ var tmpDirName = goDotEnvVariable("LOCAL_TEMP_DIRECTORY_NAME")
 
 func ConnectBlobStorage() {
 
-	container := connectToStorageContainer(accountName, accountKey)
+	container := ConnectToStorageContainer(accountName, accountKey)
 
-	downloadFileToLocalDir("test.jpg", tmpDirName, container)
+	DownloadFileToLocalDir("test.jpg", tmpDirName, container)
 
-	uploadFileToBlobStore("testUpload.jpg", tmpDirName, container)
+	UploadFileToBlobStore("testUpload.jpg", tmpDirName, container)
 
 }
 
-func connectToStorageContainer(accountName, accountKey string) azblob.ContainerClient {
+func ConnectToStorageContainer(accountName, accountKey string) azblob.ContainerClient {
 	cred, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		log.Fatal(err)
@@ -52,7 +52,7 @@ func connectToStorageContainer(accountName, accountKey string) azblob.ContainerC
 	return container
 }
 
-func uploadFileToBlobStore(fileName, directory string, container azblob.ContainerClient) {
+func UploadFileToBlobStore(fileName, directory string, container azblob.ContainerClient) {
 
 	// read file from /tmp
 	file, err := os.Open(directory + "/" + fileName)
@@ -83,7 +83,7 @@ func uploadFileToBlobStore(fileName, directory string, container azblob.Containe
 	}
 }
 
-func downloadFileToLocalDir(fileName, directory string, container azblob.ContainerClient) {
+func DownloadFileToLocalDir(fileName, directory string, container azblob.ContainerClient) {
 
 	// Create a new BlockBlobClient from the ContainerClient
 	blockBlob := container.NewBlockBlobClient(fileName)
