@@ -98,7 +98,7 @@ func UploadImagesToServer(c *gin.Context) {
 		}
 	}
 
-	// TODO create hdr file
+	// create hdr file
 	out, err := exec.Command("./scripts/runhdr.sh", imageName).Output()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -108,8 +108,13 @@ func UploadImagesToServer(c *gin.Context) {
 
 	fmt.Println(string(out))
 
-	// TODO store to blob
+	// store to blob
 	blobFileName := storage.UploadFileToBlobStore(imageName+".hdr", "/tmp/hdrgen/"+imageName+"/pic/")
+
+	// TODO upload can response curve and exif files
+	// TODO upload can response curve and exif files
+	// TODO upload can response curve and exif files
+	// TODO upload can response curve and exif files
 
 	// save to sql db
 	var image models.Image
