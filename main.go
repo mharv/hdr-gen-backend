@@ -5,11 +5,14 @@ import (
 
 	"hdr-gen-backend/database"
 	"hdr-gen-backend/router"
+	"hdr-gen-backend/storage"
 )
 
 func main() {
 
 	database.ConnectDatabase()
+
+	storage.ConnectBlobStorage()
 
 	routerInstance := router.NewRouter()
 
