@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"encoding/base64"
 
 	"hdr-gen-backend/database"
 	"hdr-gen-backend/models"
@@ -76,7 +79,6 @@ func UploadImagesToServer(c *gin.Context) {
 	imageName := c.Params.ByName("imageName")
 	fullPath := tmpDirName + imageName + "/"
 
-	fmt.Println(imageName)
 	os.MkdirAll(fullPath, os.ModePerm)
 
 	//upload bracketed set
@@ -117,7 +119,7 @@ func UploadImagesToServer(c *gin.Context) {
 	fmt.Println(string(out))
 
 	// store to blob
-	blobFileName := storage.UploadFileToBlobStore(imageName+".hdr", "/tmp/hdrgen/"+imageName+"/pic/")
+	blobFileName := storage.UploadFileToBlobStore(imageName+".hdr", "/tmp/hdrgen/"+imageName+"/pic/", true)
 
 	// TODO upload can response curve and exif files
 	// TODO upload can response curve and exif files
@@ -130,6 +132,7 @@ func UploadImagesToServer(c *gin.Context) {
 	image.ProjectId = int32(projectIdInt)
 	image.Name = blobFileName
 	image.Type = "HDR"
+	image.Status = "ACTIVE"
 
 	if result := database.DB.Create(&image); result.Error != nil {
 		c.AbortWithStatus(http.StatusNotFound)
@@ -137,6 +140,118 @@ func UploadImagesToServer(c *gin.Context) {
 		c.JSON(http.StatusOK, image)
 	}
 
+}
+
+func UpExposeImage(c *gin.Context) {
+	// upload bracketed set, create hdr, store to blob
+	projectId := c.Params.ByName("projectId")
+	projectIdInt, err := strconv.Atoi(projectId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid projectId, must be an integer",
+		})
+	}
+	// full image name including extension
+	imageName := c.Params.ByName("imageName")
+	exposureFactor := c.Params.ByName("exposureFactor")
+
+	extension := filepath.Ext(imageName)
+	// full image name without extension
+	imageNameOnly := strings.TrimSuffix(imageName, extension)
+
+	fullPath := tmpDirName + imageNameOnly + "/pic/"
+	os.MkdirAll(fullPath, os.ModePerm)
+
+	fmt.Printf("image name: %s \nprojectId: %d \nexposure factor: %s", imageName, projectIdInt, exposureFactor)
+	// load current HDR to tmp dir
+	storage.DownloadFileToLocalDir(imageName, "/tmp/hdrgen/"+imageNameOnly+"/pic/")
+
+	// run upexpose script
+	out, err := exec.Command("./scripts/upexpose.sh", imageNameOnly, exposureFactor).Output()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err,
+		})
+	}
+
+	fmt.Println(string(out))
+
+	// upload result to storage with ACTIVE status
+	blobFileName := storage.UploadFileToBlobStore(imageName, "/tmp/hdrgen/"+imageNameOnly+"/pic/", false)
+
+	// get the exposed photo as a base64 encoded jpg and return in request
+	data, err := ioutil.ReadFile("/tmp/hdrgen/" + imageNameOnly + "/tif/" + imageNameOnly + ".jpg")
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err,
+		})
+	}
+
+	var base64Encoding string
+
+	base64Encoding += "data:image/jpeg;base64,"
+	base64Encoding += base64.StdEncoding.EncodeToString(data)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
+		"image":   base64Encoding,
+	})
+}
+
+func DownExposeImage(c *gin.Context) {
+	// upload bracketed set, create hdr, store to blob
+	projectId := c.Params.ByName("projectId")
+	projectIdInt, err := strconv.Atoi(projectId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid projectId, must be an integer",
+		})
+	}
+	// full image name including extension
+	imageName := c.Params.ByName("imageName")
+	exposureFactor := c.Params.ByName("exposureFactor")
+
+	extension := filepath.Ext(imageName)
+	// full image name without extension
+	imageNameOnly := strings.TrimSuffix(imageName, extension)
+
+	fullPath := tmpDirName + imageNameOnly + "/pic/"
+	os.MkdirAll(fullPath, os.ModePerm)
+
+	fmt.Printf("image name: %s \nprojectId: %d \nexposure factor: %s", imageName, projectIdInt, exposureFactor)
+	// load current HDR to tmp dir
+	storage.DownloadFileToLocalDir(imageName, "/tmp/hdrgen/"+imageNameOnly+"/pic/")
+
+	// run upexpose script
+	out, err := exec.Command("./scripts/downexpose.sh", imageNameOnly, exposureFactor).Output()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err,
+		})
+	}
+
+	fmt.Println(string(out))
+
+	// upload result to storage with ACTIVE status
+	blobFileName := storage.UploadFileToBlobStore(imageName, "/tmp/hdrgen/"+imageNameOnly+"/pic/", false)
+
+	// get the exposed photo as a base64 encoded jpg and return in request
+	data, err := ioutil.ReadFile("/tmp/hdrgen/" + imageNameOnly + "/tif/" + imageNameOnly + ".jpg")
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err,
+		})
+	}
+
+	var base64Encoding string
+
+	base64Encoding += "data:image/jpeg;base64,"
+	base64Encoding += base64.StdEncoding.EncodeToString(data)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
+		"image":   base64Encoding,
+	})
 }
 
 func goDotEnvVariable(key string) string {

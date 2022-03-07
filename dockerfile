@@ -5,6 +5,7 @@ RUN apt-get update -y \
   && apt-get install curl -y \
   && apt-get install exiftool -y \
   && apt-get install csh -y \
+  && apt-get install imagemagick -y \
   && apt-get install unzip -y \
   && curl -O -L "https://go.dev/dl/go1.17.7.linux-amd64.tar.gz" \
   && tar -C /usr/local -xzf go1.17.7.linux-amd64.tar.gz \

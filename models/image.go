@@ -5,4 +5,5 @@ type Image struct {
 	ProjectId int32  `json:"ProjectId,omitempty" gorm:"column:ProjectId"`
 	Name      string `json:"Name,omitempty" gorm:"column:Name"`
 	Type      string `json:"Type,omitempty" gorm:"column:Type"`
+	Status    string `json:"Status,omitempty" gorm:"column:Status"`
 }

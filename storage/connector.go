@@ -18,6 +18,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 )
 
+// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/storage/azblob#BlockBlobClient.Upload
+
 var accountName = goDotEnvVariable("AZURE_STORAGE_ACCOUNT_NAME")
 var accountKey = goDotEnvVariable("AZURE_STORAGE_PRIMARY_ACCOUNT_KEY")
 var containerUrl = goDotEnvVariable("AZURE_STORAGE_CONTAINER_URL")
@@ -25,7 +27,36 @@ var containerName = goDotEnvVariable("AZURE_STORAGE_CONTAINER_NAME")
 var tmpDirName = goDotEnvVariable("LOCAL_TEMP_DIRECTORY_NAME")
 
 func ConnectBlobStorage() {
-	fmt.Println("xtest")
+
+	// testing blob store
+
+	// container := ConnectToStorageContainer(accountName, accountKey)
+	// file, err := os.Open("./scripts/test.txt")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer file.Close()
+
+	// fileInfo, _ := file.Stat()
+	// var size int64 = fileInfo.Size()
+
+	// buffer := make([]byte, size)
+
+	// file.Read(buffer)
+
+	// fileBytes := bytes.NewReader(buffer)
+
+	// // Create a new BlockBlobClient from the ContainerClient
+	// blockBlob := container.NewBlockBlobClient("test.txt")
+
+	// // Upload data to the block blob
+	// _, err = blockBlob.Upload(context.TODO(), streaming.NopCloser(fileBytes), nil)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// 	fmt.Sprintf("%s was not saved to the blob store", "test.txt")
+	// } else {
+	// 	fmt.Printf("file: %s  uploaded to blob \n", "test.txt")
+	// }
 
 }
 
@@ -50,7 +81,7 @@ func ConnectToStorageContainer(accountName, accountKey string) azblob.ContainerC
 	return container
 }
 
-func UploadFileToBlobStore(fileName, directory string) string {
+func UploadFileToBlobStore(fileName, directory string, uuidRequired bool) string {
 	container := ConnectToStorageContainer(accountName, accountKey)
 
 	// read file from /tmp
@@ -67,7 +98,13 @@ func UploadFileToBlobStore(fileName, directory string) string {
 
 	extension := filepath.Ext(fileName)
 	fileNameOnly := strings.TrimSuffix(fileName, extension)
-	blobFileName := fileNameOnly + "-" + uuid.New().String() + extension
+	var blobFileName string
+
+	if uuidRequired {
+		blobFileName = fileNameOnly + "-" + uuid.New().String() + extension
+	} else {
+		blobFileName = fileNameOnly + extension
+	}
 
 	// read file content to buffer
 	file.Read(buffer)

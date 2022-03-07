@@ -77,6 +77,18 @@ var routes = Routes{
 		"/uploadImages/:projectId/:imageName",
 		handlers.UploadImagesToServer,
 	},
+	{
+		"UpExposeImage",
+		http.MethodGet,
+		"/upExposeImage/:projectId/:imageName/:exposureFactor",
+		handlers.UpExposeImage,
+	},
+	{
+		"DownExposeImage",
+		http.MethodGet,
+		"/downExposeImage/:projectId/:imageName/:exposureFactor",
+		handlers.DownExposeImage,
+	},
 	//test routes
 	{
 		"Rtrace",
