@@ -14,7 +14,6 @@ echo "DOWN exposing image " $1 @ factor $2
 mkdir -p /tmp/hdrgen/$1/tmp
 mkdir -p /tmp/hdrgen/$1/tif
 
-
 # apply exposure, move to tmp
 pfilt -e -$2 /tmp/hdrgen/$1/pic/$1.hdr > /tmp/hdrgen/$1/tmp/$1.hdr 
 # pfilt -x /5 -y /5 -e -$2 /tmp/hdrgen/$1/pic/$1.hdr > /tmp/hdrgen/$1/tmp/$1.resized.hdr 
@@ -30,7 +29,6 @@ wait
 
 ra_tiff /tmp/hdrgen/$1/pic/$1.hdr /tmp/hdrgen/$1/tif/$1.tif
 # ra_tiff pic/$1.resized.hdr tif/$1.resized.tif
-
 
 convert /tmp/hdrgen/$1/tif/$1.tif /tmp/hdrgen/$1/tif/$1.jpg
 # example usage
