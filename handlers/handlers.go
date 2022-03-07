@@ -150,6 +150,7 @@ func UpExposeImage(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid projectId, must be an integer",
 		})
+		return
 	}
 	// full image name including extension
 	imageName := c.Params.ByName("imageName")
@@ -170,8 +171,10 @@ func UpExposeImage(c *gin.Context) {
 	out, err := exec.Command("./scripts/upexpose.sh", imageNameOnly, exposureFactor).Output()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": err,
+			"message": err.Error(),
+			"state":   "at execute script",
 		})
+		return
 	}
 
 	fmt.Println(string(out))
@@ -183,8 +186,10 @@ func UpExposeImage(c *gin.Context) {
 	data, err := ioutil.ReadFile("/tmp/hdrgen/" + imageNameOnly + "/tif/" + imageNameOnly + ".jpg")
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": err,
+			"message": err.Error(),
+			"state":   "at read jpg",
 		})
+		return
 	}
 
 	var base64Encoding string

@@ -1,6 +1,9 @@
 FROM ubuntu:20.04
 
-RUN apt-get update -y \
+ENV TZ=Australia
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
+  && apt-get update -y \
   && apt-get install -y \
   && apt-get install curl -y \
   && apt-get install exiftool -y \
