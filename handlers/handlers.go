@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"hdr-gen-backend/database"
@@ -65,6 +66,13 @@ func GetImagesProjectId(c *gin.Context) {
 
 func UploadImagesToServer(c *gin.Context) {
 	// upload bracketed set, create hdr, store to blob
+	projectId := c.Params.ByName("projectId")
+	projectIdInt, err := strconv.Atoi(projectId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid projectId, must be an integer",
+		})
+	}
 	imageName := c.Params.ByName("imageName")
 	fullPath := tmpDirName + imageName + "/"
 
@@ -119,7 +127,7 @@ func UploadImagesToServer(c *gin.Context) {
 	// save to sql db
 	var image models.Image
 
-	image.ProjectId = 1
+	image.ProjectId = int32(projectIdInt)
 	image.Name = blobFileName
 	image.Type = "HDR"
 

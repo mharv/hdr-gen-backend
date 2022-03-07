@@ -74,7 +74,7 @@ var routes = Routes{
 	{
 		"UploadImagesToServer",
 		http.MethodPost,
-		"/uploadImages/:imageName",
+		"/uploadImages/:projectId/:imageName",
 		handlers.UploadImagesToServer,
 	},
 	//test routes
