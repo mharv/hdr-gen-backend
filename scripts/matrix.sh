@@ -17,11 +17,11 @@ echo Scaling image $image @ Scale factor = $factor ...
 # make a small image to view and test on screen - 2000px x 1400px
 # the image will be labelled with 20 x 14 labels = 280 labels
 
-pfilt -1 -x 2000 -y 1400 /tmp/hdrgen/$image/pic/$image.hdr > /tmp/hdrgen/$image/pic/$image.pic
+pfilt -1 -x 2000 -y 1400 /tmp/hdrgen/$image/pic/$image.hdr > /tmp/hdrgen/$image/tmp/$image.2000.pic
 	
 # scale this image by scale factor - default is  1  but user may enter alternative
 # test this with the 2000px image
-pcomb -h -s $factor /tmp/hdrgen/$image/pic/$image.pic > /tmp/hdrgen/$image/pic/$image.x2000px.pic
+pcomb -h -s $factor /tmp/hdrgen/$image/tmp/$image.2000.pic > /tmp/hdrgen/$image/pic/$image.x2000px.pic
 wait
 echo finished scaling...
 
@@ -40,7 +40,7 @@ foreach y (01 02 03 04 05 06 07 08 09 10 11 12 13)
 	foreach x (01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19)
 		set XX = `echo $x | rcalc -e '$1=$1*100'`
 		set YY = `echo $y | rcalc -e '$1=$1*100'`
-		set lbl = `cat tmp/shortlist.txt | grep ^$XX" "$YY" " | awk '{print $3}'`
+		set lbl = `cat /tmp/hdrgen/$image/tmp/shortlist.txt | grep ^$XX" "$YY" " | awk '{print $3}'`
 		psign -cb 0 0 0 -cf 0.99 0.99 0.99 -h 20 $lbl > /tmp/hdrgen/$image/tmp/$y$x.lab
 	end
 end
@@ -68,18 +68,21 @@ pfilt -x /1.7 -y /1.7 /tmp/hdrgen/$image/tmp/check.pic > /tmp/hdrgen/$image/tmp/
 # make a smaller falsecolour version to view on screen�and display the image
 ra_tiff /tmp/hdrgen/$image/tmp/vischeck.pic /tmp/hdrgen/$image/tif/$image.vischeck.tif
 # DELIVERS images with overlaid luminance level grid as tif/*.vischeck.tif
-	
+
+convert /tmp/hdrgen/$image/tif/$image.vischeck.tif /tmp/hdrgen/$image/tif/$image.jpg
+
 # remove temporary files
-rm tmp/*.hdr
-rm tmp/*.lab
-rm tmp/*.pic
+# rm tmp/*.hdr
+# rm tmp/*.lab
+# rm tmp/*.pic
 
 echo done tiling image.
 	
 # apply the scale factor to the full size original image - assuming we are happy with result we keep this image.
 pcomb -h -s $factor /tmp/hdrgen/$image/pic/$image.hdr > /tmp/hdrgen/$image/tmp/$image.hdr &
+wait
 mv /tmp/hdrgen/$image/tmp/$image.hdr /tmp/hdrgen/$image/pic/ 
 
-rm /tmp/hdrgen/$image/pic/$image.x2000px.pic
-rm /tmp/hdrgen/$image/tmp/shortlist.txt
+# rm /tmp/hdrgen/$image/pic/$image.x2000px.pic
+# rm /tmp/hdrgen/$image/tmp/shortlist.txt
 

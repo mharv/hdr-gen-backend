@@ -89,6 +89,12 @@ var routes = Routes{
 		"/downExposeImage/:projectId/:imageName/:exposureFactor",
 		handlers.DownExposeImage,
 	},
+	{
+		"LuminanceMatrix",
+		http.MethodGet,
+		"/luminanceMatrix/:projectId/:imageName",
+		handlers.LuminanceMatrix,
+	},
 	//test routes
 	{
 		"Rtrace",

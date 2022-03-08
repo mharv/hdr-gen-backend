@@ -259,6 +259,67 @@ func DownExposeImage(c *gin.Context) {
 	})
 }
 
+func LuminanceMatrix(c *gin.Context) {
+	// upload bracketed set, create hdr, store to blob
+	projectId := c.Params.ByName("projectId")
+	projectIdInt, err := strconv.Atoi(projectId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid projectId, must be an integer",
+		})
+	}
+	// full image name including extension
+	imageName := c.Params.ByName("imageName")
+	extension := filepath.Ext(imageName)
+	// full image name without extension
+	imageNameOnly := strings.TrimSuffix(imageName, extension)
+
+	fullPath := tmpDirName + imageNameOnly + "/pic/"
+	os.MkdirAll(fullPath, os.ModePerm)
+
+	fmt.Printf("image name: %s \nprojectId: %d \n", imageName, projectIdInt)
+	// load current HDR to tmp dir
+	storage.DownloadFileToLocalDir(imageName, "/tmp/hdrgen/"+imageNameOnly+"/pic/")
+
+	// run matrix script
+	out, err := exec.Command("./scripts/matrix.sh", imageNameOnly).Output()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+			"step":    "matrix.sh",
+		})
+		return
+	}
+
+	fmt.Println(string(out))
+
+	// upload result to storage
+	// deactivated for testing
+	blobFileName := storage.UploadFileToBlobStore(imageName, "/tmp/hdrgen/"+imageNameOnly+"/pic/", false)
+
+	// get the exposed photo as a base64 encoded jpg and return in request
+	data, err := ioutil.ReadFile("/tmp/hdrgen/" + imageNameOnly + "/tif/" + imageNameOnly + ".jpg")
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+			"step":    "reading generated jpg",
+		})
+		return
+	}
+
+	// TODO do we record scling factor to mysql here?
+
+	var base64Encoding string
+
+	base64Encoding += "data:image/jpeg;base64,"
+	base64Encoding += base64.StdEncoding.EncodeToString(data)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
+		"image":   base64Encoding,
+	})
+}
+
 func goDotEnvVariable(key string) string {
 
 	err := godotenv.Load(".env")
