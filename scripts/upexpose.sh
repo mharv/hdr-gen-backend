@@ -30,7 +30,7 @@ wait
 ra_tiff /tmp/hdrgen/$1/pic/$1.hdr /tmp/hdrgen/$1/tif/$1.tif
 # ra_tiff pic/$1.resized.hdr tif/$1.resized.tif
 
-convert /tmp/hdrgen/$1/tif/$1.tif /tmp/hdrgen/$1/tif/$1.jpg
+convert /tmp/hdrgen/$1/tif/$1.tif /tmp/hdrgen/$1/tif/$1-exposed.jpg
 
 # example usage
 # ./upexpose VP_Euston.comb

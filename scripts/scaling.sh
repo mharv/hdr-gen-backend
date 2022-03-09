@@ -72,7 +72,7 @@ pfilt -x /1.7 -y /1.7 $fullpath/tmp/check.pic > $fullpath/tmp/vischeck.pic
 ra_tiff $fullpath/tmp/vischeck.pic $fullpath/tif/$image.vischeck.tif
 # DELIVERS images with overlaid luminance level grid as tif/*.vischeck.tif
 
-convert /tmp/hdrgen/$image/tif/$image.vischeck.tif /tmp/hdrgen/$image/tif/$image.jpg
+convert /tmp/hdrgen/$image/tif/$image.vischeck.tif /tmp/hdrgen/$image/tif/$image-scaled.jpg
 
 
 echo done tiling image.

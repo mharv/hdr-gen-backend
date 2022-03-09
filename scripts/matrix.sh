@@ -69,7 +69,7 @@ pfilt -x /1.7 -y /1.7 /tmp/hdrgen/$image/tmp/check.pic > /tmp/hdrgen/$image/tmp/
 ra_tiff /tmp/hdrgen/$image/tmp/vischeck.pic /tmp/hdrgen/$image/tif/$image.vischeck.tif
 # DELIVERS images with overlaid luminance level grid as tif/*.vischeck.tif
 
-convert /tmp/hdrgen/$image/tif/$image.vischeck.tif /tmp/hdrgen/$image/tif/$image.jpg
+convert /tmp/hdrgen/$image/tif/$image.vischeck.tif /tmp/hdrgen/$image/tif/$image-scaled.jpg
 
 # remove temporary files
 # rm tmp/*.hdr
