@@ -320,6 +320,20 @@ func LuminanceMatrix(c *gin.Context) {
 	})
 }
 
+func ScaleImage(c *gin.Context) {
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "placeholder",
+	})
+}
+
+func FalseColour(c *gin.Context) {
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "placeholder",
+	})
+}
+
 func goDotEnvVariable(key string) string {
 
 	err := godotenv.Load(".env")

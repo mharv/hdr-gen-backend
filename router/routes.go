@@ -95,6 +95,18 @@ var routes = Routes{
 		"/luminanceMatrix/:projectId/:imageName",
 		handlers.LuminanceMatrix,
 	},
+	{
+		"ScaleImage",
+		http.MethodGet,
+		"/scaleImage/:projectId/:imageName/:current/:target",
+		handlers.ScaleImage,
+	},
+	{
+		"FalseColour",
+		http.MethodGet,
+		"/falseColour/:projectId/:imageName",
+		handlers.FalseColour,
+	},
 	//test routes
 	{
 		"Rtrace",
