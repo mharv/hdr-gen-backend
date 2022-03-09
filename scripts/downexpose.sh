@@ -11,8 +11,8 @@ echo "DOWN exposing image " $1 @ factor $2
 # $1 = image name
 # $2 = exposure factor
 
-mkdir -p /tmp/hdrgen/$1/tmp
-mkdir -p /tmp/hdrgen/$1/tif
+# mkdir -p /tmp/hdrgen/$1/tmp
+# mkdir -p /tmp/hdrgen/$1/tif
 
 # apply exposure, move to tmp
 pfilt -e -$2 /tmp/hdrgen/$1/pic/$1.hdr > /tmp/hdrgen/$1/tmp/$1.hdr 

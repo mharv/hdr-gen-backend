@@ -6,10 +6,10 @@ set viewpoint = $1
 #�Canon use file suffix JPG not jpg - this fixes it and copies files to a temp folder.
 
 echo $viewpoint
-mkdir -p /tmp/hdrgen/$viewpoint
-mkdir -p /tmp/hdrgen/$viewpoint/exif 
-mkdir -p /tmp/hdrgen/$viewpoint/pic 
-mkdir -p /tmp/hdrgen/$viewpoint/tif
+# mkdir -p /tmp/hdrgen/$viewpoint
+# mkdir -p /tmp/hdrgen/$viewpoint/exif 
+# mkdir -p /tmp/hdrgen/$viewpoint/pic 
+# mkdir -p /tmp/hdrgen/$viewpoint/tif
 # mkdir -p /tmp/hdrgen/$viewpoint/tmp
 
 set i = 1

@@ -6,8 +6,8 @@
 
 
 # mkdir -p /tmp/hdrgen/$1/pic
-mkdir -p /tmp/hdrgen/$1/tif
-mkdir -p /tmp/hdrgen/$1/tmp
+# mkdir -p /tmp/hdrgen/$1/tif
+# mkdir -p /tmp/hdrgen/$1/tmp
 
 # takes one argument, the hdr image name without extension 
 set image = $1
