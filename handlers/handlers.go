@@ -317,15 +317,34 @@ func LuminanceMatrix(c *gin.Context) {
 
 func ScaleImage(c *gin.Context) {
 	// upload bracketed set, create hdr, store to blob
-	projectId := c.Params.ByName("projectId")
+	// projectId := c.Params.ByName("projectId")
+	// projectIdInt, err := strconv.Atoi(projectId)
+	// if err != nil {
+	// 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+	// 		"message": "Invalid projectId, must be an integer",
+	// 	})
+	// 	return
+	// }
 	currentLuminanceLevel := c.Params.ByName("current")
 	targetLuminanceLevel := c.Params.ByName("target")
-	projectIdInt, err := strconv.Atoi(projectId)
+	currentLuminanceLevelFloat, err := strconv.ParseFloat(currentLuminanceLevel, 32)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": "Invalid projectId, must be an integer",
+			"message": "Invalid currentLuminanceLevel, must be a float",
 		})
+		return
 	}
+	targetLuminanceLevelFloat, err := strconv.ParseFloat(targetLuminanceLevel, 32)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid currentLuminanceLevel, must be a float",
+		})
+		return
+	}
+
+	// calculate scale factor based of current and target readings
+	scaleFactor := fmt.Sprintf("%f", ((targetLuminanceLevelFloat / currentLuminanceLevelFloat) * 1))
+
 	// full image name including extension
 	imageName := c.Params.ByName("imageName")
 	extension := filepath.Ext(imageName)
@@ -334,17 +353,17 @@ func ScaleImage(c *gin.Context) {
 
 	fullPath := createLocalWorkingDirectory(imageName)
 
-	fmt.Println("%s\n %s\n %s\n %s\n", projectIdInt, imageName, currentLuminanceLevel, targetLuminanceLevel)
-
 	// load current HDR to tmp dir
 	storage.DownloadFileToLocalDir(imageName, fullPath+"pic/")
 
+	fmt.Printf("imageNameOnly, %s \n scaleFactor, %s \n fullPath %s \n", imageNameOnly, scaleFactor, fullPath)
+
 	// run matrix script
-	out, err := exec.Command("./scripts/matrix.sh", imageNameOnly).Output()
+	out, err := exec.Command("./scripts/scaling.sh", imageNameOnly, scaleFactor, fullPath).Output()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
-			"step":    "matrix.sh",
+			"step":    "scaling.sh",
 		})
 		return
 	}
