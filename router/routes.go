@@ -72,6 +72,13 @@ var routes = Routes{
 	},
 
 	{
+		"DownloadImagesProjectId",
+		http.MethodGet,
+		"/dowloadImagesByProject/:projectId",
+		handlers.DownloadImagesProjectId,
+	},
+
+	{
 		"UploadImagesToServer",
 		http.MethodPost,
 		"/uploadImages/:projectId/:imageName",

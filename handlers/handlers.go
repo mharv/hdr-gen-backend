@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -82,11 +84,139 @@ func GetImagesProjectId(c *gin.Context) {
 	id := c.Params.ByName("projectId")
 	var images []models.Image
 
-	if result := database.DB.Where("ProjectId = ?", id).Find(&images); result.Error != nil {
+	// get list of images with projectId
+	if result := database.DB.Where("ProjectId = ? AND Type = 'HDR'", id).Find(&images); result.Error != nil {
 		c.AbortWithStatus(http.StatusNotFound)
-	} else {
-		c.JSON(http.StatusOK, images)
+		return
 	}
+
+	var imageNames []string
+
+	for _, image := range images {
+		//remove extension from image name before append
+		var tempName string
+		tempName = strings.Replace(image.Name, ".hdr", "", 1)
+		imageNames = append(imageNames, tempName)
+	}
+
+	type imageOutput struct {
+		Name     string
+		Encoding string
+	}
+
+	var imageLists [][]imageOutput
+
+	for _, imageName := range imageNames {
+		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR'", imageName+"%").Find(&images); result.Error != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+		} else {
+			if len(images) > 0 {
+				// create dir with imageName
+				// full image name without extension
+				fullPath := createLocalWorkingDirectory(imageName)
+
+				var tempImageArray []imageOutput
+
+				for _, image := range images {
+					//download image
+					// fmt.Println(fullPath + "tif/" + imageName)
+					storage.DownloadFileToLocalDir(image.Name, fullPath+"tif/")
+
+					// get base 64 encoding
+					data, err := ioutil.ReadFile(fullPath + "tif/" + image.Name)
+					if err != nil {
+						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+							"message": err.Error(),
+							"step":    "reading generated jpg",
+						})
+						return
+					}
+
+					var base64Encoding string
+
+					base64Encoding += "data:image/jpeg;base64,"
+					base64Encoding += base64.StdEncoding.EncodeToString(data)
+
+					var tempImage imageOutput
+
+					tempImage.Name = image.Name
+					tempImage.Encoding = base64Encoding
+
+					tempImageArray = append(tempImageArray, tempImage)
+				}
+
+				imageLists = append(imageLists, tempImageArray)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, imageLists)
+}
+
+func DownloadImagesProjectId(c *gin.Context) {
+	id := c.Params.ByName("projectId")
+	var images []models.Image
+
+	// set header for file reponse
+	c.Writer.Header().Set("Content-type", "application/octet-stream")
+
+	// add project number in eventually
+	c.Writer.Header().Set("Content-Disposition", "attachment; filename=lvaImages.zip")
+	// create zip writer
+	ar := zip.NewWriter(c.Writer)
+
+	// get list of images with projectId
+	if result := database.DB.Where("ProjectId = ? AND Type = 'HDR'", id).Find(&images); result.Error != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	var imageNames []string
+
+	for _, image := range images {
+		//remove extension from image name before append
+		var tempName string
+		tempName = strings.Replace(image.Name, ".hdr", "", 1)
+		imageNames = append(imageNames, tempName)
+	}
+
+	for _, imageName := range imageNames {
+		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR'", imageName+"%").Find(&images); result.Error != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+		} else {
+			if len(images) > 0 {
+				// create dir with imageName
+				// full image name without extension
+				fullPath := createLocalWorkingDirectory(imageName)
+
+				// create zip here
+
+				for _, image := range images {
+					//download image
+					// fmt.Println(fullPath + "tif/" + imageName)
+					storage.DownloadFileToLocalDir(image.Name, fullPath+"tif/")
+
+					// get base 64 encoding
+					// data, err := ioutil.ReadFile(fullPath + "tif/" + image.Name)
+					// if err != nil {
+					// 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					// 		"message": err.Error(),
+					// 		"step":    "reading generated jpg",
+					// 	})
+					// 	return
+					// }
+
+					tempFile, _ := os.Open(fullPath + "tif/" + image.Name)
+					tempFileArchived, _ := ar.Create(image.Name)
+					io.Copy(tempFileArchived, tempFile)
+
+				}
+			}
+		}
+	}
+	ar.Close()
+
+	c.JSON(http.StatusOK, "zip of images returned")
 }
 
 func UploadImagesToServer(c *gin.Context) {
