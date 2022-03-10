@@ -87,6 +87,8 @@ func GetImagesProjectId(c *gin.Context) {
 	// get list of images with projectId
 	if result := database.DB.Where("ProjectId = ? AND Type = 'HDR'", id).Find(&images); result.Error != nil {
 		c.AbortWithStatus(http.StatusNotFound)
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -129,6 +131,8 @@ func GetImagesProjectId(c *gin.Context) {
 							"message": err.Error(),
 							"step":    "reading generated jpg",
 						})
+
+						cleanup(tmpDirName)
 						return
 					}
 
@@ -150,6 +154,7 @@ func GetImagesProjectId(c *gin.Context) {
 		}
 	}
 
+	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, imageLists)
 }
 
@@ -168,6 +173,8 @@ func DownloadImagesProjectId(c *gin.Context) {
 	// get list of images with projectId
 	if result := database.DB.Where("ProjectId = ? AND Type = 'HDR'", id).Find(&images); result.Error != nil {
 		c.AbortWithStatus(http.StatusNotFound)
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -193,18 +200,7 @@ func DownloadImagesProjectId(c *gin.Context) {
 
 				for _, image := range images {
 					//download image
-					// fmt.Println(fullPath + "tif/" + imageName)
 					storage.DownloadFileToLocalDir(image.Name, fullPath+"tif/")
-
-					// get base 64 encoding
-					// data, err := ioutil.ReadFile(fullPath + "tif/" + image.Name)
-					// if err != nil {
-					// 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-					// 		"message": err.Error(),
-					// 		"step":    "reading generated jpg",
-					// 	})
-					// 	return
-					// }
 
 					tempFile, _ := os.Open(fullPath + "tif/" + image.Name)
 					tempFileArchived, _ := ar.Create(image.Name)
@@ -215,7 +211,7 @@ func DownloadImagesProjectId(c *gin.Context) {
 		}
 	}
 	ar.Close()
-
+	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, "zip of images returned")
 }
 
@@ -227,6 +223,9 @@ func UploadImagesToServer(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid projectId, must be an integer",
 		})
+
+		cleanup(tmpDirName)
+		return
 	}
 	imageName := c.Params.ByName("imageName")
 
@@ -236,6 +235,8 @@ func UploadImagesToServer(c *gin.Context) {
 	form, err := c.MultipartForm()
 	if err != nil {
 		c.String(http.StatusBadRequest, "get form err: %s", err.Error())
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -245,6 +246,9 @@ func UploadImagesToServer(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "No file is received",
 		})
+
+		cleanup(tmpDirName)
+		return
 	}
 
 	for _, file := range files {
@@ -255,6 +259,8 @@ func UploadImagesToServer(c *gin.Context) {
 
 		if err := c.SaveUploadedFile(file, fullPath+newFileName); err != nil {
 			c.String(http.StatusBadRequest, "upload file err: %s", err.Error())
+
+			cleanup(tmpDirName)
 			return
 		}
 	}
@@ -265,6 +271,9 @@ func UploadImagesToServer(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err,
 		})
+
+		cleanup(tmpDirName)
+		return
 	}
 
 	fmt.Println(string(out))
@@ -285,6 +294,7 @@ func UploadImagesToServer(c *gin.Context) {
 	image.Type = "HDR"
 	image.Status = "ACTIVE"
 
+	cleanup(tmpDirName)
 	if result := database.DB.Create(&image); result.Error != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 	} else {
@@ -301,6 +311,8 @@ func UpExposeImage(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid projectId, must be an integer",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 	// full image name including extension
@@ -324,6 +336,8 @@ func UpExposeImage(c *gin.Context) {
 			"message": err.Error(),
 			"state":   "at execute script",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -355,6 +369,8 @@ func UpExposeImage(c *gin.Context) {
 				"message": err.Error(),
 				"step":    "problem with db write",
 			})
+
+			cleanup(tmpDirName)
 			return
 		}
 	} else {
@@ -367,6 +383,9 @@ func UpExposeImage(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err,
 		})
+
+		cleanup(tmpDirName)
+		return
 	}
 
 	var base64Encoding string
@@ -374,6 +393,7 @@ func UpExposeImage(c *gin.Context) {
 	base64Encoding += "data:image/jpeg;base64,"
 	base64Encoding += base64.StdEncoding.EncodeToString(data)
 
+	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
 		"image":   base64Encoding,
@@ -388,6 +408,9 @@ func DownExposeImage(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid projectId, must be an integer",
 		})
+
+		cleanup(tmpDirName)
+		return
 	}
 	// full image name including extension
 	imageName := c.Params.ByName("imageName")
@@ -409,6 +432,9 @@ func DownExposeImage(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err,
 		})
+
+		cleanup(tmpDirName)
+		return
 	}
 
 	fmt.Println(string(out))
@@ -439,6 +465,8 @@ func DownExposeImage(c *gin.Context) {
 				"message": err.Error(),
 				"step":    "problem with db write",
 			})
+
+			cleanup(tmpDirName)
 			return
 		}
 	} else {
@@ -451,12 +479,16 @@ func DownExposeImage(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err,
 		})
+		cleanup(tmpDirName)
+		return
 	}
 
 	var base64Encoding string
 
 	base64Encoding += "data:image/jpeg;base64,"
 	base64Encoding += base64.StdEncoding.EncodeToString(data)
+
+	cleanup(tmpDirName)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
@@ -472,6 +504,9 @@ func LuminanceMatrix(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid projectId, must be an integer",
 		})
+
+		cleanup(tmpDirName)
+		return
 	}
 	// full image name including extension
 	imageName := c.Params.ByName("imageName")
@@ -491,6 +526,8 @@ func LuminanceMatrix(c *gin.Context) {
 			"message": err.Error(),
 			"step":    "matrix.sh",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -515,6 +552,8 @@ func LuminanceMatrix(c *gin.Context) {
 			"message": err.Error(),
 			"step":    "problem with db write",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -525,6 +564,8 @@ func LuminanceMatrix(c *gin.Context) {
 			"message": err.Error(),
 			"step":    "reading generated jpg",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -533,6 +574,7 @@ func LuminanceMatrix(c *gin.Context) {
 	base64Encoding += "data:image/jpeg;base64,"
 	base64Encoding += base64.StdEncoding.EncodeToString(data)
 
+	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
 		"image":   base64Encoding,
@@ -556,6 +598,8 @@ func ScaleImage(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid currentLuminanceLevel, must be a float",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 	targetLuminanceLevelFloat, err := strconv.ParseFloat(targetLuminanceLevel, 32)
@@ -563,6 +607,8 @@ func ScaleImage(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid currentLuminanceLevel, must be a float",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -589,6 +635,8 @@ func ScaleImage(c *gin.Context) {
 			"message": err.Error(),
 			"step":    "scaling.sh",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -608,6 +656,8 @@ func ScaleImage(c *gin.Context) {
 			"message": err.Error(),
 			"step":    "error reading generated jpg",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -618,6 +668,7 @@ func ScaleImage(c *gin.Context) {
 	base64Encoding += "data:image/jpeg;base64,"
 	base64Encoding += base64.StdEncoding.EncodeToString(data)
 
+	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
 		"image":   base64Encoding,
@@ -632,6 +683,9 @@ func FalseColour(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid projectId, must be an integer",
 		})
+
+		cleanup(tmpDirName)
+		return
 	}
 	// full image name including extension
 	imageName := c.Params.ByName("imageName")
@@ -651,6 +705,8 @@ func FalseColour(c *gin.Context) {
 			"message": err.Error(),
 			"step":    "falsecolour.sh",
 		})
+
+		cleanup(tmpDirName)
 		return
 	}
 
@@ -670,8 +726,12 @@ func FalseColour(c *gin.Context) {
 
 	if result := database.DB.Create(&image); result.Error != nil {
 		c.AbortWithStatus(http.StatusNotFound)
+
+		cleanup(tmpDirName)
 		return
 	}
+
+	cleanup(tmpDirName)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "false color generation complete.",
@@ -689,6 +749,13 @@ func createLocalWorkingDirectory(imageName string) string {
 	os.MkdirAll(fullPath+"tif/", os.ModePerm)
 	os.MkdirAll(fullPath+"exif/", os.ModePerm)
 	return fullPath
+}
+
+func cleanup(dir string) {
+	err := os.RemoveAll(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func goDotEnvVariable(key string) string {
