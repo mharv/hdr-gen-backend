@@ -1,12 +1,16 @@
 package router
 
 import (
+	"log"
 	"net/http"
+	"os"
 
 	"hdr-gen-backend/handlers"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	"github.com/joho/godotenv"
 )
 
 // Route is the information for every URI.
@@ -23,11 +27,13 @@ type Route struct {
 
 type Routes []Route
 
+var deployedUrl = goDotEnvVariable("FRONTEND_URL")
+
 // NewRouter returns a new router.
 func NewRouter() *gin.Engine {
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:3000"},
+		AllowOrigins: []string{"http://localhost:3000", deployedUrl},
 		AllowMethods: []string{"POST", "GET", "OPTIONS"},
 		AllowHeaders: []string{"Origin", "Access-Control-Allow-Headers", "content-type"},
 		// ExposeHeaders: []string{"Content-Length"},
@@ -147,4 +153,15 @@ var routes = Routes{
 		"/sleep",
 		handlers.Sleep,
 	},
+}
+
+func goDotEnvVariable(key string) string {
+
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	return os.Getenv(key)
 }
