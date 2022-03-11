@@ -59,5 +59,7 @@ echo Creating Tiff...
 ra_tiff /tmp/hdrgen/$viewpoint/pic/$viewpoint.hdr /tmp/hdrgen/$viewpoint/tif/$viewpoint.tif
 echo Done creating Tiff...
 
+convert /tmp/hdrgen/$viewpoint/tif/$viewpoint.tif /tmp/hdrgen/$viewpoint/tif/$viewpoint-base.jpg
+
 # the finished UNSCALED image is in the pic folder as *.comb.hdr
 # the finished UNSCALED tif is in the tif folder as *.comb.tif

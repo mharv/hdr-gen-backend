@@ -86,6 +86,7 @@ func UploadFileToBlobStore(fileName, directory string, uuidRequired bool) string
 
 	// read file from /tmp
 	file, err := os.Open(directory + fileName)
+	fmt.Println(directory + fileName)
 	if err != nil {
 		log.Fatal(err)
 	}

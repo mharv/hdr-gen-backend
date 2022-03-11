@@ -52,6 +52,12 @@ func NewRouter() *gin.Engine {
 
 var routes = Routes{
 	{
+		"GetProjectByNumber",
+		http.MethodGet,
+		"/projectByNumber/:projectNumber",
+		handlers.GetProjectByNumber,
+	},
+	{
 		"GetProjects",
 		http.MethodGet,
 		"/projects",
@@ -69,6 +75,13 @@ var routes = Routes{
 		http.MethodGet,
 		"/images",
 		handlers.GetImages,
+	},
+
+	{
+		"GetImageByName",
+		http.MethodGet,
+		"/imageByName/:imageName",
+		handlers.GetImageByName,
 	},
 
 	{

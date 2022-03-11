@@ -27,6 +27,17 @@ import (
 
 var tmpDirName = goDotEnvVariable("LOCAL_TEMP_UPLOAD_DIRECTORY_NAME")
 
+func GetProjectByNumber(c *gin.Context) {
+	projectNumber := c.Params.ByName("projectNumber")
+	var project models.Project
+
+	if result := database.DB.Where("Number = ?", projectNumber).Find(&project); result.Error != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+	} else {
+		c.JSON(http.StatusOK, project)
+	}
+}
+
 func GetProjects(c *gin.Context) {
 	var projects []models.Project
 
@@ -109,7 +120,7 @@ func GetImagesProjectId(c *gin.Context) {
 	var imageLists [][]imageOutput
 
 	for _, imageName := range imageNames {
-		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR'", imageName+"%").Find(&images); result.Error != nil {
+		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR' AND Type <> 'BASE'", imageName+"%").Find(&images); result.Error != nil {
 			c.AbortWithStatus(http.StatusNotFound)
 		} else {
 			if len(images) > 0 {
@@ -188,7 +199,7 @@ func DownloadImagesProjectId(c *gin.Context) {
 	}
 
 	for _, imageName := range imageNames {
-		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR'", imageName+"%").Find(&images); result.Error != nil {
+		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR' AND Type <> 'BASE'", imageName+"%").Find(&images); result.Error != nil {
 			c.AbortWithStatus(http.StatusNotFound)
 		} else {
 			if len(images) > 0 {
@@ -294,13 +305,89 @@ func UploadImagesToServer(c *gin.Context) {
 	image.Type = "HDR"
 	image.Status = "ACTIVE"
 
-	cleanup(tmpDirName)
 	if result := database.DB.Create(&image); result.Error != nil {
 		c.AbortWithStatus(http.StatusNotFound)
-	} else {
-		c.JSON(http.StatusOK, image)
+		cleanup(tmpDirName)
+		return
 	}
 
+	extension := filepath.Ext(blobFileName)
+	// full image name without extension
+	imageNameOnly := strings.TrimSuffix(blobFileName, extension)
+	fmt.Println(blobFileName)
+	fmt.Println(imageNameOnly)
+
+	// rename .jpg
+	Original_Path := fullPath + "tif/" + imageName + "-base.jpg"
+	New_Path := fullPath + "tif/" + imageNameOnly + "-base.jpg"
+	e := os.Rename(Original_Path, New_Path)
+	if e != nil {
+		log.Fatal(e)
+	}
+
+	jpgblobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-base.jpg", fullPath+"tif/", false)
+
+	// record metadata in sql
+	image.ProjectId = int32(projectIdInt)
+	image.Name = jpgblobFileName
+	image.Type = "BASE"
+	image.Status = "ACTIVE"
+
+	if result := database.DB.Create(&image); result.Error != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+			"message": err.Error(),
+			"step":    "problem with db write",
+		})
+
+		cleanup(tmpDirName)
+		return
+	}
+
+	cleanup(tmpDirName)
+	c.JSON(http.StatusOK, gin.H{
+		"message":      fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
+		"previewImage": jpgblobFileName,
+		"hdrImage":     blobFileName,
+	})
+}
+
+func GetImageByName(c *gin.Context) {
+	imageName := c.Params.ByName("imageName")
+
+	extension := filepath.Ext(imageName)
+	// full image name without extension
+	imageNameOnly := strings.TrimSuffix(imageName, extension)
+
+	fullPath := createLocalWorkingDirectory(imageNameOnly)
+
+	//get image downloaded
+
+	storage.DownloadFileToLocalDir(imageName, fullPath+"tif/")
+
+	// get the exposed photo as a base64 encoded jpg and return in request
+	data, err := ioutil.ReadFile(fullPath + "tif/" + imageName)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+			"step":    "reading generated jpg",
+		})
+
+		cleanup(tmpDirName)
+		return
+	}
+
+	//return base64
+	var base64Encoding string
+
+	base64Encoding += "data:image/jpeg;base64,"
+	base64Encoding += base64.StdEncoding.EncodeToString(data)
+
+	//cleanup
+
+	cleanup(tmpDirName)
+	c.JSON(http.StatusOK, gin.H{
+		"image": base64Encoding,
+	})
 }
 
 func UpExposeImage(c *gin.Context) {
@@ -557,27 +644,11 @@ func LuminanceMatrix(c *gin.Context) {
 		return
 	}
 
-	// get the exposed photo as a base64 encoded jpg and return in request
-	data, err := ioutil.ReadFile(fullPath + "tif/" + imageNameOnly + "-scaled.jpg")
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": err.Error(),
-			"step":    "reading generated jpg",
-		})
-
-		cleanup(tmpDirName)
-		return
-	}
-
-	var base64Encoding string
-
-	base64Encoding += "data:image/jpeg;base64,"
-	base64Encoding += base64.StdEncoding.EncodeToString(data)
-
 	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
-		"image":   base64Encoding,
+		"message":      fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
+		"previewImage": jpgblobFileName,
+		"hdrImage":     blobFileName,
 	})
 }
 
