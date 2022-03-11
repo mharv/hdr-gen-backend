@@ -47,8 +47,7 @@ COPY router ./router
 COPY executables ./executables
 COPY .env .
 
-RUN chmod +x ./scripts/sleep.sh \ 
-  && cp ./executables/addpics.cal /usr/local/radiance/lib/ \
+RUN cp ./executables/addpics.cal /usr/local/radiance/lib/ \
   && cp ./executables/hdrgen /usr/local/radiance/bin/ \
   && chmod +x /usr/local/radiance/bin/hdrgen \
   && go mod tidy \
