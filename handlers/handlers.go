@@ -277,7 +277,7 @@ func UploadImagesToServer(c *gin.Context) {
 	}
 
 	// create hdr file
-	out, err := exec.Command("./scripts/runhdr.sh", imageName).Output()
+	out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName).Output()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err,
@@ -482,8 +482,10 @@ func UpExposeImage(c *gin.Context) {
 
 	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
-		"image":   base64Encoding,
+		"message":      fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
+		"image":        base64Encoding,
+		"previewImage": jpgblobFileName,
+		"hdrImage":     blobFileName,
 	})
 }
 
@@ -578,8 +580,86 @@ func DownExposeImage(c *gin.Context) {
 	cleanup(tmpDirName)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
-		"image":   base64Encoding,
+		"message":      fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
+		"image":        base64Encoding,
+		"previewImage": jpgblobFileName,
+		"hdrImage":     blobFileName,
+	})
+}
+
+func LuminanceLevels(c *gin.Context) {
+	// upload bracketed set, create hdr, store to blob
+	projectId := c.Params.ByName("projectId")
+	projectIdInt, err := strconv.Atoi(projectId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid projectId, must be an integer",
+		})
+
+		cleanup(tmpDirName)
+		return
+	}
+	// full image name including extension
+	imageName := c.Params.ByName("imageName")
+	extension := filepath.Ext(imageName)
+	// full image name without extension
+	imageNameOnly := strings.TrimSuffix(imageName, extension)
+
+	fullPath := createLocalWorkingDirectory(imageName)
+
+	// load current HDR to tmp dir
+	storage.DownloadFileToLocalDir(imageName, fullPath+"pic/")
+
+	// run matrix script
+	out, err := exec.Command("./scripts/luminanceLevels.sh", imageNameOnly).Output()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+			"step":    "matrix.sh",
+		})
+
+		cleanup(tmpDirName)
+		return
+	}
+
+	fmt.Println(string(out))
+
+	temp := strings.Split(string(out), "\n")
+
+	type key struct {
+		x string
+		y string
+	}
+
+	response := make(map[string]float64)
+
+	for _, record := range temp {
+		if len(record) > 0 {
+			fragmented := strings.Split(record, " ")
+
+			f1, err := strconv.ParseFloat(fragmented[2], 8)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			tempKey := fmt.Sprintf("%s, %s", fragmented[0], fragmented[1])
+			// key{x: fragmented[0], y: fragmented[1]}
+			// fmt.Println(tempKey)
+			// keyString, err := json.Marshal(&tempKey)
+			// if err != nil {
+			// 	panic(err)
+			// }
+
+			response[tempKey] = f1
+
+		}
+	}
+	response["x"] = 1000
+	response["y"] = 700
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("image %d has been uploaded to storage.", projectIdInt),
+		"data":    response,
 	})
 }
 
@@ -653,15 +733,6 @@ func LuminanceMatrix(c *gin.Context) {
 }
 
 func ScaleImage(c *gin.Context) {
-	// upload bracketed set, create hdr, store to blob
-	// projectId := c.Params.ByName("projectId")
-	// projectIdInt, err := strconv.Atoi(projectId)
-	// if err != nil {
-	// 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-	// 		"message": "Invalid projectId, must be an integer",
-	// 	})
-	// 	return
-	// }
 	currentLuminanceLevel := c.Params.ByName("current")
 	targetLuminanceLevel := c.Params.ByName("target")
 	currentLuminanceLevelFloat, err := strconv.ParseFloat(currentLuminanceLevel, 32)
@@ -673,6 +744,7 @@ func ScaleImage(c *gin.Context) {
 		cleanup(tmpDirName)
 		return
 	}
+
 	targetLuminanceLevelFloat, err := strconv.ParseFloat(targetLuminanceLevel, 32)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -700,11 +772,11 @@ func ScaleImage(c *gin.Context) {
 	fmt.Printf("imageNameOnly, %s \n scaleFactor, %s \n fullPath %s \n", imageNameOnly, scaleFactor, fullPath)
 
 	// run matrix script
-	out, err := exec.Command("./scripts/scaling.sh", imageNameOnly, scaleFactor, fullPath).Output()
+	out, err := exec.Command("./scripts/scaleImage.sh", imageNameOnly, scaleFactor, fullPath).Output()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
-			"step":    "scaling.sh",
+			"step":    "scaleImage.sh",
 		})
 
 		cleanup(tmpDirName)
@@ -717,34 +789,128 @@ func ScaleImage(c *gin.Context) {
 	// deactivated for testing
 	blobFileName := storage.UploadFileToBlobStore(imageName, fullPath+"pic/", false)
 
-	jpgblobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-scaled.jpg", fullPath+"tif/", false)
-	fmt.Println(jpgblobFileName)
+	// jpgblobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-scaled.jpg", fullPath+"tif/", false)
+	// fmt.Println(jpgblobFileName)
 
-	// get the exposed photo as a base64 encoded jpg and return in request
-	data, err := ioutil.ReadFile(fullPath + "tif/" + imageNameOnly + "-scaled.jpg")
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": err.Error(),
-			"step":    "error reading generated jpg",
-		})
+	// // get the exposed photo as a base64 encoded jpg and return in request
+	// data, err := ioutil.ReadFile(fullPath + "tif/" + imageNameOnly + "-scaled.jpg")
+	// if err != nil {
+	// 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+	// 		"message": err.Error(),
+	// 		"step":    "error reading generated jpg",
+	// 	})
 
-		cleanup(tmpDirName)
-		return
-	}
+	// 	cleanup(tmpDirName)
+	// 	return
+	// }
 
 	// TODO do we record scling factor to mysql here?
 
-	var base64Encoding string
+	// var base64Encoding string
 
-	base64Encoding += "data:image/jpeg;base64,"
-	base64Encoding += base64.StdEncoding.EncodeToString(data)
+	// base64Encoding += "data:image/jpeg;base64,"
+	// base64Encoding += base64.StdEncoding.EncodeToString(data)
 
 	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
-		"image":   base64Encoding,
+		// "image":   base64Encoding,
 	})
 }
+
+// func ScaleImage(c *gin.Context) {
+// 	// upload bracketed set, create hdr, store to blob
+// 	// projectId := c.Params.ByName("projectId")
+// 	// projectIdInt, err := strconv.Atoi(projectId)
+// 	// if err != nil {
+// 	// 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+// 	// 		"message": "Invalid projectId, must be an integer",
+// 	// 	})
+// 	// 	return
+// 	// }
+// 	currentLuminanceLevel := c.Params.ByName("current")
+// 	targetLuminanceLevel := c.Params.ByName("target")
+// 	currentLuminanceLevelFloat, err := strconv.ParseFloat(currentLuminanceLevel, 32)
+// 	if err != nil {
+// 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+// 			"message": "Invalid currentLuminanceLevel, must be a float",
+// 		})
+
+// 		cleanup(tmpDirName)
+// 		return
+// 	}
+// 	targetLuminanceLevelFloat, err := strconv.ParseFloat(targetLuminanceLevel, 32)
+// 	if err != nil {
+// 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+// 			"message": "Invalid currentLuminanceLevel, must be a float",
+// 		})
+
+// 		cleanup(tmpDirName)
+// 		return
+// 	}
+
+// 	// calculate scale factor based of current and target readings
+// 	scaleFactor := fmt.Sprintf("%f", ((targetLuminanceLevelFloat / currentLuminanceLevelFloat) * 1))
+
+// 	// full image name including extension
+// 	imageName := c.Params.ByName("imageName")
+// 	extension := filepath.Ext(imageName)
+// 	// full image name without extension
+// 	imageNameOnly := strings.TrimSuffix(imageName, extension)
+
+// 	fullPath := createLocalWorkingDirectory(imageName)
+
+// 	// load current HDR to tmp dir
+// 	storage.DownloadFileToLocalDir(imageName, fullPath+"pic/")
+
+// 	fmt.Printf("imageNameOnly, %s \n scaleFactor, %s \n fullPath %s \n", imageNameOnly, scaleFactor, fullPath)
+
+// 	// run matrix script
+// 	out, err := exec.Command("./scripts/scaling.sh", imageNameOnly, scaleFactor, fullPath).Output()
+// 	if err != nil {
+// 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+// 			"message": err.Error(),
+// 			"step":    "scaling.sh",
+// 		})
+
+// 		cleanup(tmpDirName)
+// 		return
+// 	}
+
+// 	fmt.Println(string(out))
+
+// 	// upload result to storage
+// 	// deactivated for testing
+// 	blobFileName := storage.UploadFileToBlobStore(imageName, fullPath+"pic/", false)
+
+// 	jpgblobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-scaled.jpg", fullPath+"tif/", false)
+// 	fmt.Println(jpgblobFileName)
+
+// 	// get the exposed photo as a base64 encoded jpg and return in request
+// 	data, err := ioutil.ReadFile(fullPath + "tif/" + imageNameOnly + "-scaled.jpg")
+// 	if err != nil {
+// 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+// 			"message": err.Error(),
+// 			"step":    "error reading generated jpg",
+// 		})
+
+// 		cleanup(tmpDirName)
+// 		return
+// 	}
+
+// 	// TODO do we record scling factor to mysql here?
+
+// 	var base64Encoding string
+
+// 	base64Encoding += "data:image/jpeg;base64,"
+// 	base64Encoding += base64.StdEncoding.EncodeToString(data)
+
+// 	cleanup(tmpDirName)
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
+// 		"image":   base64Encoding,
+// 	})
+// }
 
 func FalseColour(c *gin.Context) {
 	// upload bracketed set, create hdr, store to blob

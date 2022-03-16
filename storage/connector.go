@@ -24,7 +24,6 @@ var accountName = goDotEnvVariable("AZURE_STORAGE_ACCOUNT_NAME")
 var accountKey = goDotEnvVariable("AZURE_STORAGE_PRIMARY_ACCOUNT_KEY")
 var containerUrl = goDotEnvVariable("AZURE_STORAGE_CONTAINER_URL")
 var containerName = goDotEnvVariable("AZURE_STORAGE_CONTAINER_NAME")
-var tmpDirName = goDotEnvVariable("LOCAL_TEMP_DIRECTORY_NAME")
 
 func ConnectBlobStorage() {
 

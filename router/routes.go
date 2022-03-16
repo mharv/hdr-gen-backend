@@ -123,6 +123,13 @@ var routes = Routes{
 		handlers.DownExposeImage,
 	},
 	{
+		"LuminanceLevels",
+		http.MethodGet,
+		"/luminanceLevels/:projectId/:imageName",
+		handlers.LuminanceLevels,
+	},
+
+	{
 		"LuminanceMatrix",
 		http.MethodGet,
 		"/luminanceMatrix/:projectId/:imageName",

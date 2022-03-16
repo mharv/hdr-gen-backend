@@ -15,6 +15,7 @@
 set image = $1
 set factor = $2
 set fullpath = /tmp/hdrgen/$1
+# set fullpath = /dev/shm/hdrgen/$1
 
 echo Scaling image $image @ Scale factor = $factor ...
 # make a small image to view and test on screen - 2000px x 1400px
@@ -72,7 +73,7 @@ pfilt -x /1.7 -y /1.7 $fullpath/tmp/check.pic > $fullpath/tmp/vischeck.pic
 ra_tiff $fullpath/tmp/vischeck.pic $fullpath/tif/$image.vischeck.tif
 # DELIVERS images with overlaid luminance level grid as tif/*.vischeck.tif
 
-convert /tmp/hdrgen/$image/tif/$image.vischeck.tif /tmp/hdrgen/$image/tif/$image-scaled.jpg
+convert $fullpath/tif/$image.vischeck.tif $fullpath/tif/$image-scaled.jpg
 
 
 echo done tiling image.
@@ -80,5 +81,5 @@ echo done tiling image.
 # apply the scale factor to the full size original image - assuming we are happy with result we keep this image.
 pcomb -h -s $factor $fullpath/pic/$image.hdr	> $fullpath/tmp/$image.hdr & 
 wait
-mv /tmp/hdrgen/$image/tmp/$image.hdr /tmp/hdrgen/$image/pic/ 
+mv $fullpath/tmp/$image.hdr $fullpath/pic/ 
 

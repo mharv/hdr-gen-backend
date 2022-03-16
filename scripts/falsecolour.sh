@@ -11,6 +11,7 @@
 # take one argument, image name
 set image = $1
 set fullpath = /tmp/hdrgen/$1
+# set fullpath = /dev/shm/hdrgen/$1
 
 
 #### establish a suitable exposure for the images
