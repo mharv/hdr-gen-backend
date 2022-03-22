@@ -951,13 +951,13 @@ func FalseColour(c *gin.Context) {
 
 	// upload result to storage
 	// deactivated for testing
-	blobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-falseColor.jpg", fullPath+"tif/", false)
+	blobFileName1 := storage.UploadFileToBlobStore(imageNameOnly+"-falseColor1.jpg", fullPath+"tif/", false)
 
 	// record metadata in sql
 	var image models.Image
 
 	image.ProjectId = int32(projectIdInt)
-	image.Name = blobFileName
+	image.Name = blobFileName1
 	image.Type = "FALSECOLOR"
 	image.Status = "ACTIVE"
 
@@ -967,6 +967,34 @@ func FalseColour(c *gin.Context) {
 		cleanup(tmpDirName)
 		return
 	}
+
+	blobFileName2 := storage.UploadFileToBlobStore(imageNameOnly+"-falseColor2.jpg", fullPath+"tif/", false)
+
+	image.ProjectId = int32(projectIdInt)
+	image.Name = blobFileName2
+	image.Type = "FALSECOLOR"
+	image.Status = "ACTIVE"
+
+	if result := database.DB.Create(&image); result.Error != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+
+		cleanup(tmpDirName)
+		return
+	}
+
+	// blobFileName3 := storage.UploadFileToBlobStore(imageNameOnly+"-falseColor3.jpg", fullPath+"tif/", false)
+
+	// image.ProjectId = int32(projectIdInt)
+	// image.Name = blobFileName3
+	// image.Type = "FALSECOLOR"
+	// image.Status = "ACTIVE"
+
+	// if result := database.DB.Create(&image); result.Error != nil {
+	// 	c.AbortWithStatus(http.StatusNotFound)
+
+	// 	cleanup(tmpDirName)
+	// 	return
+	// }
 
 	cleanup(tmpDirName)
 

@@ -70,5 +70,7 @@ pfilt -e $exp 	$fullpath/pic/$image.hdr | ra_tiff -z -  $fullpath/tif/$image.tif
 wait
 
 
-convert $fullpath/tif/$image.fc.100.tif $fullpath/tif/$image-falseColor.jpg
+# convert $fullpath/tif/$image.fc.1.tif $fullpath/tif/$image-falseColor1.jpg
+convert $fullpath/tif/$image.fc.100.tif $fullpath/tif/$image-falseColor1.jpg
+convert $fullpath/tif/$image.fc.10000.tif $fullpath/tif/$image-falseColor2.jpg
 echo processing complete.
