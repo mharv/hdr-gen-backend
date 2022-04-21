@@ -276,11 +276,29 @@ func UploadImagesToServer(c *gin.Context) {
 		}
 	}
 
-	// create hdr file
-	out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName).Output()
+	// copy response curve to /tmp/hdrgen/{name}
+
+	responseCurveFileString := "./responseCurves/responseCurve.cam"
+	imageTmpDirString := tmpDirName + imageName
+
+	fmt.Println("responseCurveFileString: " + responseCurveFileString)
+	fmt.Println("imageTmpDirString: " + imageTmpDirString)
+
+	out, err := exec.Command("cp", responseCurveFileString, imageTmpDirString).Output()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": err,
+			"message": err.Error(),
+		})
+
+		cleanup(tmpDirName)
+		return
+	}
+
+	// create hdr file
+	out, err = exec.Command("./scripts/runhdr.sh", imageName, tmpDirName).Output()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
 		})
 
 		cleanup(tmpDirName)

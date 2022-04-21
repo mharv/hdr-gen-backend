@@ -39,6 +39,7 @@ COPY go.mod .
 COPY go.sum .
 COPY main.go .
 COPY scripts ./scripts
+COPY responseCurves ./responseCurves
 COPY database ./database
 COPY handlers ./handlers
 COPY storage ./storage
