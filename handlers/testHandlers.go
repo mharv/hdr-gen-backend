@@ -10,6 +10,9 @@ import (
 func Sleep(c *gin.Context) {
 	out, err := exec.Command("./scripts/sleep.sh").Output()
 
+    c.JSON(http.StatusOK, "test")
+    return
+
 	response := string(out)
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)

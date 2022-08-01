@@ -173,11 +173,23 @@ func DownloadImagesProjectId(c *gin.Context) {
 	id := c.Params.ByName("projectId")
 	var images []models.Image
 
-	// set header for file reponse
+
+    // TODO get project details here and use Project number as filename for zip downlaod
+	var projectNumber string
+	var project models.Project
+    if result := database.DB.Where("Id = ?", id).Find(&project); result.Error != nil {
+        c.AbortWithStatus(http.StatusNotFound)
+
+        cleanup(tmpDirName)
+        return
+    } else {
+        projectNumber = project.Number
+    }
+    // set header for file reponse
 	c.Writer.Header().Set("Content-type", "application/octet-stream")
 
 	// add project number in eventually
-	c.Writer.Header().Set("Content-Disposition", "attachment; filename=lvaImages.zip")
+	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-NVA-HDR.zip", projectNumber))
 	// create zip writer
 	ar := zip.NewWriter(c.Writer)
 
@@ -193,8 +205,7 @@ func DownloadImagesProjectId(c *gin.Context) {
 
 	for _, image := range images {
 		//remove extension from image name before append
-		var tempName string
-		tempName = strings.Replace(image.Name, ".hdr", "", 1)
+		var tempName = strings.Replace(image.Name, ".hdr", "", 1)
 		imageNames = append(imageNames, tempName)
 	}
 
@@ -208,7 +219,6 @@ func DownloadImagesProjectId(c *gin.Context) {
 				fullPath := createLocalWorkingDirectory(imageName)
 
 				// create zip here
-
 				for _, image := range images {
 					//download image
 					storage.DownloadFileToLocalDir(image.Name, fullPath+"tif/")
@@ -216,7 +226,6 @@ func DownloadImagesProjectId(c *gin.Context) {
 					tempFile, _ := os.Open(fullPath + "tif/" + image.Name)
 					tempFileArchived, _ := ar.Create(image.Name)
 					io.Copy(tempFileArchived, tempFile)
-
 				}
 			}
 		}
@@ -252,6 +261,7 @@ func UploadImagesToServer(c *gin.Context) {
 	}
 
 	files := form.File["files"]
+
 	// The file cannot be received.
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -262,10 +272,11 @@ func UploadImagesToServer(c *gin.Context) {
 		return
 	}
 
-	for _, file := range files {
+	for i, file := range files {
 		extension := filepath.Ext(file.Filename)
-		filename := strings.TrimSuffix(file.Filename, extension)
+		// filename := strings.TrimSuffix(file.Filename, extension)
 
+        filename := fmt.Sprintf("subset%d", i+1)
 		newFileName := filename + "-" + uuid.New().String() + extension
 
 		if err := c.SaveUploadedFile(file, fullPath+newFileName); err != nil {
@@ -277,14 +288,10 @@ func UploadImagesToServer(c *gin.Context) {
 	}
 
 	// copy response curve to /tmp/hdrgen/{name}
-
 	responseCurveFileString := "./responseCurves/responseCurve.cam"
 	imageTmpDirString := tmpDirName + imageName
 
-	fmt.Println("responseCurveFileString: " + responseCurveFileString)
-	fmt.Println("imageTmpDirString: " + imageTmpDirString)
-
-	out, err := exec.Command("cp", responseCurveFileString, imageTmpDirString).Output()
+	_, err = exec.Command("cp", responseCurveFileString, imageTmpDirString).Output()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
@@ -295,9 +302,10 @@ func UploadImagesToServer(c *gin.Context) {
 	}
 
 	// create hdr file
-	out, err = exec.Command("./scripts/runhdr.sh", imageName, tmpDirName).Output()
+    out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName).Output()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+            "stuck" : "here",
 			"message": err.Error(),
 		})
 
@@ -1050,4 +1058,15 @@ func goDotEnvVariable(key string) string {
 	}
 
 	return os.Getenv(key)
+}
+
+func printDir(path string) {
+    files, err := ioutil.ReadDir(path)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    for _, file := range files {
+        fmt.Println(file.Name(), file.IsDir())
+    }
 }
