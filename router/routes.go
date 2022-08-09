@@ -160,6 +160,12 @@ var routes = Routes{
 		"/sleep",
 		handlers.Sleep,
 	},
+	{
+		"ApplogTest",
+		http.MethodGet,
+		"/applogtest",
+        handlers.TestLog,
+	},
 }
 
 func goDotEnvVariable(key string) string {

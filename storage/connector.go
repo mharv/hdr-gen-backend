@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"hdr-gen-backend/database"
+	"hdr-gen-backend/models"
 	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
@@ -29,39 +32,12 @@ func ConnectBlobStorage() {
 
 	// testing blob store
 
-	// container := ConnectToStorageContainer(accountName, accountKey)
-	// file, err := os.Open("./scripts/test.txt")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer file.Close()
-
-	// fileInfo, _ := file.Stat()
-	// var size int64 = fileInfo.Size()
-
-	// buffer := make([]byte, size)
-
-	// file.Read(buffer)
-
-	// fileBytes := bytes.NewReader(buffer)
-
-	// // Create a new BlockBlobClient from the ContainerClient
-	// blockBlob := container.NewBlockBlobClient("test.txt")
-
-	// // Upload data to the block blob
-	// _, err = blockBlob.Upload(context.TODO(), streaming.NopCloser(fileBytes), nil)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// 	fmt.Sprintf("%s was not saved to the blob store", "test.txt")
-	// } else {
-	// 	fmt.Printf("file: %s  uploaded to blob \n", "test.txt")
-	// }
-
 }
 
 func ConnectToStorageContainer(accountName, accountKey string) azblob.ContainerClient {
 	cred, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
+        logMessage(-1, -1, fmt.Sprintf("failed to connect to blob storage with error: %s", err.Error()))
 		log.Fatal(err)
 	} else {
 		fmt.Println("blob connection successful...")
@@ -168,4 +144,23 @@ func goDotEnvVariable(key string) string {
 	}
 
 	return os.Getenv(key)
+}
+
+func logMessage(projectId, imageId int32, message string) string {
+	var applog models.Applog
+	// record metadata in sql
+    if projectId != -1 {
+        applog.ProjectId = projectId
+    }
+    if imageId != -1 {
+        applog.ImageId = imageId
+    }
+	applog.Time = time.Now().Format(time.RFC3339)
+	applog.Message = message
+
+	if result := database.DB.Create(&applog); result.Error != nil {
+		return "messaged successfully logged."
+	} else {
+		return "messaged was not logged..."
+    }
 }

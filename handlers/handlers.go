@@ -6,12 +6,14 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"encoding/base64"
 
@@ -32,6 +34,7 @@ func GetProjectByNumber(c *gin.Context) {
 	var project models.Project
 
 	if result := database.DB.Where("Number = ?", projectNumber).Find(&project); result.Error != nil {
+        logMessage(-1, -1, fmt.Sprintf("Project with project number %s cannot be found.", projectNumber))
 		c.AbortWithStatus(http.StatusNotFound)
 	} else {
 		c.JSON(http.StatusOK, project)
@@ -42,6 +45,7 @@ func GetProjects(c *gin.Context) {
 	var projects []models.Project
 
 	if result := database.DB.Find(&projects); result.Error != nil {
+        logMessage(-1, -1, "Projects could not be loaded.")
 		c.AbortWithStatus(http.StatusNotFound)
 	} else {
 		c.JSON(http.StatusOK, projects)
@@ -66,6 +70,7 @@ func PostProject(c *gin.Context) {
 	if !exists {
 		fmt.Println("project record does not exist... saving now.")
 		if result := database.DB.Create(&project); result.Error != nil {
+        logMessage(-1, -1, "Error creating project in DB.")
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 				"message": result.Error.Error(),
 				"step":    "problem with db write",
@@ -75,6 +80,7 @@ func PostProject(c *gin.Context) {
 		}
 	} else {
 		fmt.Println("project record exists... doing nothing.")
+        logMessage(-1, -1, fmt.Sprintf("Project with project number %s already exists.", project.Number))
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"message": fmt.Sprintf("Project with project number %s already exist", project.Number),
 		})
@@ -85,6 +91,7 @@ func GetImages(c *gin.Context) {
 	var images []models.Image
 
 	if result := database.DB.Find(&images); result.Error != nil {
+        logMessage(-1, -1, "Error getting image records from DB.")
 		c.AbortWithStatus(http.StatusNotFound)
 	} else {
 		c.JSON(http.StatusOK, images)
@@ -95,8 +102,13 @@ func GetImagesProjectId(c *gin.Context) {
 	id := c.Params.ByName("projectId")
 	var images []models.Image
 
+    id_number, err := strconv.ParseInt(id, 10, 32)
+    if err != nil {
+        panic(err)
+    }
 	// get list of images with projectId
 	if result := database.DB.Where("ProjectId = ? AND Type = 'HDR'", id).Find(&images); result.Error != nil {
+        logMessage(int32(id_number), -1, "Could not get images for project.")
 		c.AbortWithStatus(http.StatusNotFound)
 
 		cleanup(tmpDirName)
@@ -121,6 +133,7 @@ func GetImagesProjectId(c *gin.Context) {
 
 	for _, imageName := range imageNames {
 		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR' AND Type <> 'BASE'", imageName+"%").Find(&images); result.Error != nil {
+            logMessage(int32(id_number), -1, fmt.Sprintf("Could not get images for image with image name %s.", imageName))
 			c.AbortWithStatus(http.StatusNotFound)
 		} else {
 			if len(images) > 0 {
@@ -138,6 +151,7 @@ func GetImagesProjectId(c *gin.Context) {
 					// get base 64 encoding
 					data, err := ioutil.ReadFile(fullPath + "tif/" + image.Name)
 					if err != nil {
+                        logMessage(int32(id_number), -1, fmt.Sprintf("Could not read generated jpg image with image name %s.", image.Name))
 						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 							"message": err.Error(),
 							"step":    "reading generated jpg",
@@ -174,10 +188,16 @@ func DownloadImagesProjectId(c *gin.Context) {
 	var images []models.Image
 
 
-    // TODO get project details here and use Project number as filename for zip downlaod
+    id_number, err := strconv.ParseInt(id, 10, 32)
+    if err != nil {
+        panic(err)
+    }
+
 	var projectNumber string
 	var project models.Project
+
     if result := database.DB.Where("Id = ?", id).Find(&project); result.Error != nil {
+        logMessage(int32(id_number), -1, fmt.Sprintf("project with id %s could not be found in DB.", id))
         c.AbortWithStatus(http.StatusNotFound)
 
         cleanup(tmpDirName)
@@ -195,6 +215,7 @@ func DownloadImagesProjectId(c *gin.Context) {
 
 	// get list of images with projectId
 	if result := database.DB.Where("ProjectId = ? AND Type = 'HDR'", id).Find(&images); result.Error != nil {
+        logMessage(int32(id_number), -1, fmt.Sprintf("could not get image names from DB for project %s", projectNumber))
 		c.AbortWithStatus(http.StatusNotFound)
 
 		cleanup(tmpDirName)
@@ -211,6 +232,7 @@ func DownloadImagesProjectId(c *gin.Context) {
 
 	for _, imageName := range imageNames {
 		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR' AND Type <> 'BASE'", imageName+"%").Find(&images); result.Error != nil {
+        logMessage(int32(id_number), -1, fmt.Sprintf("could not get image from DB for image %s", imageName))
 			c.AbortWithStatus(http.StatusNotFound)
 		} else {
 			if len(images) > 0 {
@@ -254,6 +276,7 @@ func UploadImagesToServer(c *gin.Context) {
 	//upload bracketed set
 	form, err := c.MultipartForm()
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("get form err: %s", projectId))
 		c.String(http.StatusBadRequest, "get form err: %s", err.Error())
 
 		cleanup(tmpDirName)
@@ -261,16 +284,6 @@ func UploadImagesToServer(c *gin.Context) {
 	}
 
 	files := form.File["files"]
-
-	// The file cannot be received.
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": "No file is received",
-		})
-
-		cleanup(tmpDirName)
-		return
-	}
 
 	for i, file := range files {
 		extension := filepath.Ext(file.Filename)
@@ -280,6 +293,7 @@ func UploadImagesToServer(c *gin.Context) {
 		newFileName := filename + "-" + uuid.New().String() + extension
 
 		if err := c.SaveUploadedFile(file, fullPath+newFileName); err != nil {
+            logMessage(int32(projectIdInt), -1, fmt.Sprintf("error uploading file to tmp filesystem for project %s", projectId))
 			c.String(http.StatusBadRequest, "upload file err: %s", err.Error())
 
 			cleanup(tmpDirName)
@@ -293,6 +307,7 @@ func UploadImagesToServer(c *gin.Context) {
 
 	_, err = exec.Command("cp", responseCurveFileString, imageTmpDirString).Output()
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error copying response curve for project %s", projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 		})
@@ -304,6 +319,7 @@ func UploadImagesToServer(c *gin.Context) {
 	// create hdr file
     out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName).Output()
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error creating hdr file for image %s, project %s", imageName, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
             "stuck" : "here",
 			"message": err.Error(),
@@ -332,6 +348,7 @@ func UploadImagesToServer(c *gin.Context) {
 	image.Status = "ACTIVE"
 
 	if result := database.DB.Create(&image); result.Error != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error saving HDR image to DB for project %s", projectId))
 		c.AbortWithStatus(http.StatusNotFound)
 		cleanup(tmpDirName)
 		return
@@ -348,6 +365,7 @@ func UploadImagesToServer(c *gin.Context) {
 	New_Path := fullPath + "tif/" + imageNameOnly + "-base.jpg"
 	e := os.Rename(Original_Path, New_Path)
 	if e != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error renaming image path for project %s", projectId))
 		log.Fatal(e)
 	}
 
@@ -360,6 +378,7 @@ func UploadImagesToServer(c *gin.Context) {
 	image.Status = "ACTIVE"
 
 	if result := database.DB.Create(&image); result.Error != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error saving BASE image to DB for project %s", projectId))
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"message": err.Error(),
 			"step":    "problem with db write",
@@ -393,6 +412,7 @@ func GetImageByName(c *gin.Context) {
 	// get the exposed photo as a base64 encoded jpg and return in request
 	data, err := ioutil.ReadFile(fullPath + "tif/" + imageName)
 	if err != nil {
+        logMessage(-1, -1, fmt.Sprintf("could not get image %s", imageName))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 			"step":    "reading generated jpg",
@@ -445,6 +465,7 @@ func UpExposeImage(c *gin.Context) {
 	// run upexpose script
 	out, err := exec.Command("./scripts/upexpose.sh", imageNameOnly, exposureFactor).Output()
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error running upexpose script on image %s for project %s",imageName, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 			"state":   "at execute script",
@@ -493,6 +514,7 @@ func UpExposeImage(c *gin.Context) {
 	// get the exposed photo as a base64 encoded jpg and return in request
 	data, err := ioutil.ReadFile(fullPath + "tif/" + imageNameOnly + "-exposed.jpg")
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("failed to read image %s for project %s",imageNameOnly, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err,
 		})
@@ -544,6 +566,7 @@ func DownExposeImage(c *gin.Context) {
 	// run upexpose script
 	out, err := exec.Command("./scripts/downexpose.sh", imageNameOnly, exposureFactor).Output()
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error running downexpose script on image %s for project %s",imageName, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err,
 		})
@@ -591,6 +614,7 @@ func DownExposeImage(c *gin.Context) {
 	// get the exposed photo as a base64 encoded jpg and return in request
 	data, err := ioutil.ReadFile(fullPath + "tif/" + imageNameOnly + "-exposed.jpg")
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("failed to read image %s for project %s",imageNameOnly, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err,
 		})
@@ -639,6 +663,7 @@ func LuminanceLevels(c *gin.Context) {
 	// run matrix script
 	out, err := exec.Command("./scripts/luminanceLevels.sh", imageNameOnly).Output()
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("failed to get luminance matrix for image %s for project %s",imageNameOnly, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 			"step":    "matrix.sh",
@@ -659,27 +684,29 @@ func LuminanceLevels(c *gin.Context) {
 
 	response := make(map[string]float64)
 
+    sum := 0.0
+    count := 0.0
+
 	for _, record := range temp {
 		if len(record) > 0 {
 			fragmented := strings.Split(record, " ")
 
-			f1, err := strconv.ParseFloat(fragmented[2], 8)
+			f1, err := strconv.ParseFloat(fragmented[2], 32)
 			if err != nil {
 				fmt.Println(err)
 			}
 
 			tempKey := fmt.Sprintf("%s, %s", fragmented[0], fragmented[1])
-			// key{x: fragmented[0], y: fragmented[1]}
-			// fmt.Println(tempKey)
-			// keyString, err := json.Marshal(&tempKey)
-			// if err != nil {
-			// 	panic(err)
-			// }
-
 			response[tempKey] = f1
+
+            sum += f1
+            count += 1
 
 		}
 	}
+    response["average"] =  sum / count
+    response["average"] = math.Floor(response["average"]*100)/100
+
 	response["x"] = 1000
 	response["y"] = 700
 
@@ -715,6 +742,7 @@ func LuminanceMatrix(c *gin.Context) {
 	// run matrix script
 	out, err := exec.Command("./scripts/matrix.sh", imageNameOnly).Output()
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("failed to get luminance matrix for image %s for project %s",imageNameOnly, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 			"step":    "matrix.sh",
@@ -741,6 +769,7 @@ func LuminanceMatrix(c *gin.Context) {
 	image.Status = "ACTIVE"
 
 	if result := database.DB.Create(&image); result.Error != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("failed to save image %s metadata for project %s to DB", image.Name, projectId))
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"message": err.Error(),
 			"step":    "problem with db write",
@@ -800,6 +829,7 @@ func ScaleImage(c *gin.Context) {
 	// run matrix script
 	out, err := exec.Command("./scripts/scaleImage.sh", imageNameOnly, scaleFactor, fullPath).Output()
 	if err != nil {
+        logMessage(-1, -1, fmt.Sprintf("failed to scale image %s .", imageNameOnly))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 			"step":    "scaleImage.sh",
@@ -815,28 +845,6 @@ func ScaleImage(c *gin.Context) {
 	// deactivated for testing
 	blobFileName := storage.UploadFileToBlobStore(imageName, fullPath+"pic/", false)
 
-	// jpgblobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-scaled.jpg", fullPath+"tif/", false)
-	// fmt.Println(jpgblobFileName)
-
-	// // get the exposed photo as a base64 encoded jpg and return in request
-	// data, err := ioutil.ReadFile(fullPath + "tif/" + imageNameOnly + "-scaled.jpg")
-	// if err != nil {
-	// 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-	// 		"message": err.Error(),
-	// 		"step":    "error reading generated jpg",
-	// 	})
-
-	// 	cleanup(tmpDirName)
-	// 	return
-	// }
-
-	// TODO do we record scling factor to mysql here?
-
-	// var base64Encoding string
-
-	// base64Encoding += "data:image/jpeg;base64,"
-	// base64Encoding += base64.StdEncoding.EncodeToString(data)
-
 	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
@@ -844,99 +852,6 @@ func ScaleImage(c *gin.Context) {
 	})
 }
 
-// func ScaleImage(c *gin.Context) {
-// 	// upload bracketed set, create hdr, store to blob
-// 	// projectId := c.Params.ByName("projectId")
-// 	// projectIdInt, err := strconv.Atoi(projectId)
-// 	// if err != nil {
-// 	// 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-// 	// 		"message": "Invalid projectId, must be an integer",
-// 	// 	})
-// 	// 	return
-// 	// }
-// 	currentLuminanceLevel := c.Params.ByName("current")
-// 	targetLuminanceLevel := c.Params.ByName("target")
-// 	currentLuminanceLevelFloat, err := strconv.ParseFloat(currentLuminanceLevel, 32)
-// 	if err != nil {
-// 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-// 			"message": "Invalid currentLuminanceLevel, must be a float",
-// 		})
-
-// 		cleanup(tmpDirName)
-// 		return
-// 	}
-// 	targetLuminanceLevelFloat, err := strconv.ParseFloat(targetLuminanceLevel, 32)
-// 	if err != nil {
-// 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-// 			"message": "Invalid currentLuminanceLevel, must be a float",
-// 		})
-
-// 		cleanup(tmpDirName)
-// 		return
-// 	}
-
-// 	// calculate scale factor based of current and target readings
-// 	scaleFactor := fmt.Sprintf("%f", ((targetLuminanceLevelFloat / currentLuminanceLevelFloat) * 1))
-
-// 	// full image name including extension
-// 	imageName := c.Params.ByName("imageName")
-// 	extension := filepath.Ext(imageName)
-// 	// full image name without extension
-// 	imageNameOnly := strings.TrimSuffix(imageName, extension)
-
-// 	fullPath := createLocalWorkingDirectory(imageName)
-
-// 	// load current HDR to tmp dir
-// 	storage.DownloadFileToLocalDir(imageName, fullPath+"pic/")
-
-// 	fmt.Printf("imageNameOnly, %s \n scaleFactor, %s \n fullPath %s \n", imageNameOnly, scaleFactor, fullPath)
-
-// 	// run matrix script
-// 	out, err := exec.Command("./scripts/scaling.sh", imageNameOnly, scaleFactor, fullPath).Output()
-// 	if err != nil {
-// 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-// 			"message": err.Error(),
-// 			"step":    "scaling.sh",
-// 		})
-
-// 		cleanup(tmpDirName)
-// 		return
-// 	}
-
-// 	fmt.Println(string(out))
-
-// 	// upload result to storage
-// 	// deactivated for testing
-// 	blobFileName := storage.UploadFileToBlobStore(imageName, fullPath+"pic/", false)
-
-// 	jpgblobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-scaled.jpg", fullPath+"tif/", false)
-// 	fmt.Println(jpgblobFileName)
-
-// 	// get the exposed photo as a base64 encoded jpg and return in request
-// 	data, err := ioutil.ReadFile(fullPath + "tif/" + imageNameOnly + "-scaled.jpg")
-// 	if err != nil {
-// 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-// 			"message": err.Error(),
-// 			"step":    "error reading generated jpg",
-// 		})
-
-// 		cleanup(tmpDirName)
-// 		return
-// 	}
-
-// 	// TODO do we record scling factor to mysql here?
-
-// 	var base64Encoding string
-
-// 	base64Encoding += "data:image/jpeg;base64,"
-// 	base64Encoding += base64.StdEncoding.EncodeToString(data)
-
-// 	cleanup(tmpDirName)
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"message": fmt.Sprintf("image %s has been uploaded to storage.", blobFileName),
-// 		"image":   base64Encoding,
-// 	})
-// }
 
 func FalseColour(c *gin.Context) {
 	// upload bracketed set, create hdr, store to blob
@@ -964,6 +879,7 @@ func FalseColour(c *gin.Context) {
 	// run matrix script
 	out, err := exec.Command("./scripts/falsecolour.sh", imageNameOnly).Output()
 	if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("failed to generate false colour image %s .", imageNameOnly))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 			"step":    "falsecolour.sh",
@@ -1002,25 +918,12 @@ func FalseColour(c *gin.Context) {
 	image.Status = "ACTIVE"
 
 	if result := database.DB.Create(&image); result.Error != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("failed to save false colour metadata for image %s .", imageNameOnly))
 		c.AbortWithStatus(http.StatusNotFound)
 
 		cleanup(tmpDirName)
 		return
 	}
-
-	// blobFileName3 := storage.UploadFileToBlobStore(imageNameOnly+"-falseColor3.jpg", fullPath+"tif/", false)
-
-	// image.ProjectId = int32(projectIdInt)
-	// image.Name = blobFileName3
-	// image.Type = "FALSECOLOR"
-	// image.Status = "ACTIVE"
-
-	// if result := database.DB.Create(&image); result.Error != nil {
-	// 	c.AbortWithStatus(http.StatusNotFound)
-
-	// 	cleanup(tmpDirName)
-	// 	return
-	// }
 
 	cleanup(tmpDirName)
 
@@ -1068,5 +971,24 @@ func printDir(path string) {
 
     for _, file := range files {
         fmt.Println(file.Name(), file.IsDir())
+    }
+}
+
+func logMessage(projectId, imageId int32, message string) string {
+	var applog models.Applog
+	// record metadata in sql
+    if projectId != -1 {
+        applog.ProjectId = projectId
+    }
+    if imageId != -1 {
+        applog.ImageId = imageId
+    }
+	applog.Time = time.Now().Format(time.RFC3339)
+	applog.Message = message
+
+	if result := database.DB.Create(&applog); result.Error != nil {
+		return "messaged successfully logged."
+	} else {
+		return "messaged was not logged..."
     }
 }
