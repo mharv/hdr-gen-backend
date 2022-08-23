@@ -257,6 +257,32 @@ func DownloadImagesProjectId(c *gin.Context) {
 	c.JSON(http.StatusOK, "zip of images returned")
 }
 
+type LuminanceAverageResponse struct {
+    Image string
+}
+
+func PostLuminanceAverages(c *gin.Context) {
+	projectId := c.Params.ByName("projectId")
+	projectIdInt, err := strconv.Atoi(projectId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid projectId, must be an integer",
+		})
+
+		cleanup(tmpDirName)
+		return
+	}
+
+
+
+    var luminanceAverage LuminanceAverageResponse
+	c.BindJSON(&luminanceAverage)
+    fmt.Printf("project ID:  %d \n", projectIdInt)
+
+    fmt.Printf("image base64 string: %s", luminanceAverage.Image)
+	c.JSON(http.StatusOK, luminanceAverage.Image)
+}
+
 func UploadImagesToServer(c *gin.Context) {
 	// upload bracketed set, create hdr, store to blob
 	projectId := c.Params.ByName("projectId")

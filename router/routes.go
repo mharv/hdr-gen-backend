@@ -70,6 +70,12 @@ var routes = Routes{
 		handlers.GetProjects,
 	},
 	{
+		"PostLuminanceAverages",
+		http.MethodPost,
+		"/luminanceAverages/:projectId/:imageName",
+		handlers.PostLuminanceAverages,
+	},
+	{
 		"PostProject",
 		http.MethodPost,
 		"/projects",
