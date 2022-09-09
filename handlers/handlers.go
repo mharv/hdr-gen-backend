@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"archive/zip"
+	"bytes"
 	"fmt"
+	"image/jpeg"
 	"io"
 	"io/ioutil"
 	"log"
@@ -273,13 +275,119 @@ func PostLuminanceAverages(c *gin.Context) {
 		return
 	}
 
+    imageName := c.Params.ByName("imageName")
 
+	fullPath := createLocalWorkingDirectory(imageName)
 
     var luminanceAverage LuminanceAverageResponse
 	c.BindJSON(&luminanceAverage)
-    fmt.Printf("project ID:  %d \n", projectIdInt)
 
-    fmt.Printf("image base64 string: %s", luminanceAverage.Image)
+    fmt.Printf("project ID:  %d \n", projectIdInt)
+    fmt.Printf("image name:  %s \n", imageName)
+    imageNameOnly := strings.Split(imageName, ".")[0]
+
+    idx := strings.Index(luminanceAverage.Image, ";base64,")
+    if idx < 0 {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("base64 data of luminance averages image is invalid for project %s", projectId))
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid base64 image data",
+		})
+		cleanup(tmpDirName)
+		return
+    }
+
+    unbased, err := base64.StdEncoding.DecodeString(luminanceAverage.Image[idx+8:])
+    r := bytes.NewReader(unbased)
+
+    im, err := jpeg.Decode(r)
+    if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("bad jpeg for project %s", projectId))
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "bad jpeg image data, base64 decoding failed",
+		})
+        fmt.Printf("err: %s",err)
+		cleanup(tmpDirName)
+		return
+    }
+
+    fmt.Printf("fullpath:  %s \n", fullPath)
+    f, err := os.OpenFile(fullPath+"tif/"+imageNameOnly+"-luminance-averages.jpg", os.O_WRONLY|os.O_CREATE, 0777)
+    if err != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("opening luminance average image failed for project %s", projectId))
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": "opening luminance average image failed , base64 decoding failed",
+		})
+        fmt.Printf("err: %s",err)
+		cleanup(tmpDirName)
+		return
+    }
+
+    jpeg.Encode(f, im, nil)
+
+
+
+    // save image metadata to DB
+    fmt.Println(fullPath+"tif/"+imageNameOnly+"-luminance-averages.jpg")
+
+	blobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-luminance-averages.jpg", fullPath+"tif/", false)
+
+    if false {
+	// save to sql db
+	var image models.Image
+
+	image.ProjectId = int32(projectIdInt)
+	image.Name = blobFileName
+	image.Type = "HDR"
+	image.Status = "ACTIVE"
+
+	if result := database.DB.Create(&image); result.Error != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error saving HDR image to DB for project %s", projectId))
+		c.AbortWithStatus(http.StatusNotFound)
+		cleanup(tmpDirName)
+		return
+	}
+
+	extension := filepath.Ext(blobFileName)
+	// full image name without extension
+	imageNameOnly := strings.TrimSuffix(blobFileName, extension)
+	fmt.Println(blobFileName)
+	fmt.Println(imageNameOnly)
+
+	// rename .jpg
+	Original_Path := fullPath + "tif/" + imageName + "-base.jpg"
+	New_Path := fullPath + "tif/" + imageNameOnly + "-base.jpg"
+	e := os.Rename(Original_Path, New_Path)
+	if e != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error renaming image path for project %s", projectId))
+		log.Fatal(e)
+	}
+
+	jpgblobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-base.jpg", fullPath+"tif/", false)
+
+	// record metadata in sql
+	image.ProjectId = int32(projectIdInt)
+	image.Name = jpgblobFileName
+	image.Type = "BASE"
+	image.Status = "ACTIVE"
+
+	if result := database.DB.Create(&image); result.Error != nil {
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error saving BASE image to DB for project %s", projectId))
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+			"message": err.Error(),
+			"step":    "problem with db write",
+		})
+
+		cleanup(tmpDirName)
+		return
+	}
+}
+    // store image in azure storage
+
+
+
+    fmt.Println(os.DirFS(tmpDirName))
+
+
 	c.JSON(http.StatusOK, luminanceAverage.Image)
 }
 
