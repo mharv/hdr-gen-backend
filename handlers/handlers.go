@@ -133,8 +133,10 @@ func GetImagesProjectId(c *gin.Context) {
 
 	var imageLists [][]imageOutput
 
+
 	for _, imageName := range imageNames {
-		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR' AND Type <> 'BASE'", imageName+"%").Find(&images); result.Error != nil {
+		if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR'", imageName+"%").Find(&images); result.Error != nil {
+		// if result := database.DB.Where("Name LIKE ? AND Type <> 'HDR' AND Type <> 'BASE'", imageName+"%").Find(&images); result.Error != nil {
             logMessage(int32(id_number), -1, fmt.Sprintf("Could not get images for image with image name %s.", imageName))
 			c.AbortWithStatus(http.StatusNotFound)
 		} else {
@@ -144,6 +146,24 @@ func GetImagesProjectId(c *gin.Context) {
 				fullPath := createLocalWorkingDirectory(imageName)
 
 				var tempImageArray []imageOutput
+
+                // the following code checks if both a base image and an exposed image is in the image list.
+                exposedFlag := 0;
+                baseIndex := 0;
+				for i, image := range images {
+                    if strings.Contains(image.Name, "exposed") {
+                        exposedFlag = 1
+                    }
+                    if strings.Contains(image.Name, "base") {
+                        baseIndex = i
+                    }
+                }
+
+                // if both are in the list, remove the base image as the exposed will be used for display.
+
+                if exposedFlag == 1 {
+                    images = append(images[:baseIndex], images[baseIndex+1:]...)
+                }
 
 				for _, image := range images {
 					//download image
@@ -180,6 +200,14 @@ func GetImagesProjectId(c *gin.Context) {
 			}
 		}
 	}
+
+    fmt.Println("imageLists")
+    for _, name := range imageLists {
+        for _, item := range name {
+            fmt.Println(item.Name)
+        }
+    }
+    fmt.Println("END_")
 
 	cleanup(tmpDirName)
 	c.JSON(http.StatusOK, imageLists)
@@ -282,8 +310,6 @@ func PostLuminanceAverages(c *gin.Context) {
     var luminanceAverage LuminanceAverageResponse
 	c.BindJSON(&luminanceAverage)
 
-    fmt.Printf("project ID:  %d \n", projectIdInt)
-    fmt.Printf("image name:  %s \n", imageName)
     imageNameOnly := strings.Split(imageName, ".")[0]
 
     idx := strings.Index(luminanceAverage.Image, ";base64,")
@@ -326,67 +352,26 @@ func PostLuminanceAverages(c *gin.Context) {
 
 
 
-    // save image metadata to DB
+    // store image in azure storage
     fmt.Println(fullPath+"tif/"+imageNameOnly+"-luminance-averages.jpg")
-
 	blobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-luminance-averages.jpg", fullPath+"tif/", false)
 
-    if false {
-	// save to sql db
+    fmt.Printf("blobFileName: %s", blobFileName)
+    // save image metadata to DB
+
 	var image models.Image
 
 	image.ProjectId = int32(projectIdInt)
 	image.Name = blobFileName
-	image.Type = "HDR"
+	image.Type = "LUMAVG"
 	image.Status = "ACTIVE"
 
 	if result := database.DB.Create(&image); result.Error != nil {
-        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error saving HDR image to DB for project %s", projectId))
+        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error saving LUMAVG image to DB for project %s", projectId))
 		c.AbortWithStatus(http.StatusNotFound)
 		cleanup(tmpDirName)
 		return
 	}
-
-	extension := filepath.Ext(blobFileName)
-	// full image name without extension
-	imageNameOnly := strings.TrimSuffix(blobFileName, extension)
-	fmt.Println(blobFileName)
-	fmt.Println(imageNameOnly)
-
-	// rename .jpg
-	Original_Path := fullPath + "tif/" + imageName + "-base.jpg"
-	New_Path := fullPath + "tif/" + imageNameOnly + "-base.jpg"
-	e := os.Rename(Original_Path, New_Path)
-	if e != nil {
-        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error renaming image path for project %s", projectId))
-		log.Fatal(e)
-	}
-
-	jpgblobFileName := storage.UploadFileToBlobStore(imageNameOnly+"-base.jpg", fullPath+"tif/", false)
-
-	// record metadata in sql
-	image.ProjectId = int32(projectIdInt)
-	image.Name = jpgblobFileName
-	image.Type = "BASE"
-	image.Status = "ACTIVE"
-
-	if result := database.DB.Create(&image); result.Error != nil {
-        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error saving BASE image to DB for project %s", projectId))
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"message": err.Error(),
-			"step":    "problem with db write",
-		})
-
-		cleanup(tmpDirName)
-		return
-	}
-}
-    // store image in azure storage
-
-
-
-    fmt.Println(os.DirFS(tmpDirName))
-
 
 	c.JSON(http.StatusOK, luminanceAverage.Image)
 }
