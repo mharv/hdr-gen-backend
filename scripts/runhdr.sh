@@ -10,15 +10,16 @@ set fullpath = /tmp/hdrgen/$viewpoint
 
 echo $viewpoint
 # mkdir -p $fullpath
-# mkdir -p $fullpath/exif 
-# mkdir -p $fullpath/pic 
+# mkdir -p $fullpath/exif
+# mkdir -p $fullpath/pic
 # mkdir -p $fullpath/tif
 # mkdir -p $fullpath/tmp
 
 set i = 1
 
 echo -n Getting EXIF data $viewpoint ...
-foreach image (`ls $fullpath | egrep 'JPG|jpg'`)
+#foreach image (`ls $fullpath | egrep 'JPG|jpg'`)
+foreach image (`ls $fullpath | egrep 'JPG|jpg|JPEG|jpeg'`)
 	cp $fullpath/$image $fullpath/$i.jpg
 	set pth = ($fullpath/$image)
 	echo -n .
@@ -42,18 +43,19 @@ echo DONE getting exif data.
 #note also the yourcamera.cam is the profile of your camera, either you already have this or it was created by the previous step
 
 echo Starting hdrgen for $viewpoint ...
-hdrgen $fullpath/*.jpg -r $fullpath/responseCurve.cam -o $fullpath/pic/$viewpoint.pic
+#hdrgen $fullpath/*.jpg -r $fullpath/responseCurve.cam -o $fullpath/pic/$viewpoint.pic
+hdrgen $fullpath/*.jpg -r $fullpath/insta360-melbourne.rsp -o $fullpath/pic/$viewpoint.pic
 rm $fullpath/*.jpg
 echo DONE generating hdr.
-	
+
 # this displays a smaller version for quick inspection
 # DELIVERS HDR combined images as tif's in the tif folder
 
 echo Resizing image...
 # pfilt -1 -x 4000 -y 2800 pic/$viewpoint.comb.pic > pic/$viewpoint.comb.hdr &
-pfilt -1 -x 4000 -y 2800 $fullpath/pic/$viewpoint.pic > $fullpath/pic/$viewpoint.hdr 
+pfilt -1 -x 4000 -y 2800 $fullpath/pic/$viewpoint.pic > $fullpath/pic/$viewpoint.hdr
 # pfilt -x 1000 -p 1 pic/$viewpoint.comb.pic > tmp/$viewpoint.comb.hdr &
-# pfilt -x 1000 -p 1 $fullpath/pic/$viewpoint.comb.pic > $fullpath/tmp/$viewpoint.comb.hdr 
+# pfilt -x 1000 -p 1 $fullpath/pic/$viewpoint.comb.pic > $fullpath/tmp/$viewpoint.comb.hdr
 wait
 echo Done resizing image.
 
