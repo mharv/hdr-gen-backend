@@ -9,7 +9,7 @@
 # mkdir -p /tmp/hdrgen/$1/tif
 # mkdir -p /tmp/hdrgen/$1/tmp
 
-# takes one argument, the hdr image name without extension 
+# takes one argument, the hdr image name without extension
 set image = $1
 set factor = 1
 
@@ -20,24 +20,24 @@ set fullpath = /tmp/hdrgen/$1
 # make a small image to view and test on screen - 2000px x 1400px
 # the image will be labelled with 20 x 14 labels = 280 labels
 
-pfilt -1 -x 1000 -y 700 $fullpath/pic/$image.hdr > $fullpath/tmp/$image.2000.pic
-	
+pfilt -1 -x 500 -y 350  $fullpath/pic/$image.hdr > $fullpath/tmp/$image.2000.pic
+
 # scale this image by scale factor - default is  1  but user may enter alternative
 # test this with the 2000px image
 pcomb -h -s $factor $fullpath/tmp/$image.2000.pic > $fullpath/pic/$image.x2000px.pic
 wait
 # echo finished scaling...
 
-		
-# echo getting luminance values from image $image ...		
+
+# echo getting luminance values from image $image ...
 # run pvalue and search for any pixel with y,x coordinates = n00,n00
 
 #required
 # pvalue -o -h -H $fullpath/pic/$image.x2000px.pic | rcalc -e '$1=$1;$2=$2;$3=($3*.265+$4*.67+$5*.065)*179' | awk '{printf "%.0f %.0f %.2f\n", $1, $2, $3}' | tr " " _ | egrep '.00_.00_|..00_..00_|..00_.00_|.00_..00_' | tr _ " " > $fullpath/tmp/shortlist.txt &
-pvalue +y -x -o -h -H $fullpath/pic/$image.x2000px.pic  | rcalc -e '$1=$1;$2=$2;$3=($3*.265+$4*.67+$5*.065)*179' | awk '{printf "%.0f %.0f %.2f\n", $1, $2, $3}' 
+pvalue +y -x -o -h -H $fullpath/pic/$image.x2000px.pic  | rcalc -e '$1=$1;$2=$2;$3=($3*.265+$4*.67+$5*.065)*179' | awk '{printf "%.0f %.0f %.2f\n", $1, $2, $3}'
 wait
 
-# echo marking pixels ...		
+# echo marking pixels ...
 # this next line makes a little star to mark the point of the sample in the image
 
 #required
@@ -93,12 +93,12 @@ wait
 
 #required
 # echo done tiling image.
-	
+
 # apply the scale factor to the full size original image - assuming we are happy with result we keep this image.
 #required
 # pcomb -h -s $factor $fullpath/pic/$image.hdr > $fullpath/tmp/$image.hdr &
 # wait
-# mv $fullpath/tmp/$image.hdr $fullpath/pic/ 
+# mv $fullpath/tmp/$image.hdr $fullpath/pic/
 
 # rm $fullpath/pic/$image.x2000px.pic
 # rm $fullpath/tmp/shortlist.txt

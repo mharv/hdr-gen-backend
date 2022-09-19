@@ -826,8 +826,8 @@ func LuminanceLevels(c *gin.Context) {
     response["average"] =  sum / count
     response["average"] = math.Floor(response["average"]*100)/100
 
-	response["x"] = 1000
-	response["y"] = 700
+	response["x"] = 500
+	response["y"] = 350
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("image %d has been uploaded to storage.", projectIdInt),
