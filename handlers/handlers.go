@@ -420,8 +420,26 @@ func UploadImagesToServer(c *gin.Context) {
 		}
 	}
 
+
+	var project models.Project
+
+	if result := database.DB.Where("Id = ?", projectId).Find(&project); result.Error != nil {
+        logMessage(-1, -1, fmt.Sprintf("Project with project Id: %s cannot be found.", projectId))
+		c.AbortWithStatus(http.StatusNotFound)
+	}
+
+    fmt.Println("response curve:")
+    fmt.Println(project.ResponseCurve)
+    fmt.Println("END")
+
+    if project.ResponseCurve == "" {
+        // select insta360-melbourne.rsp as default
+        project.ResponseCurve = "insta360-melbourne.rsp"
+    }
+
+
 	// copy response curve to /tmp/hdrgen/{name}
-	responseCurveFileString := "./responseCurves/responseCurve.cam"
+	responseCurveFileString := "./responseCurves/" + project.ResponseCurve
 	imageTmpDirString := tmpDirName + imageName
 
 	_, err = exec.Command("cp", responseCurveFileString, imageTmpDirString).Output()
@@ -436,7 +454,7 @@ func UploadImagesToServer(c *gin.Context) {
 	}
 
 	// create hdr file
-    out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName, "insta360-melbourne.rsp").Output()
+    out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName, project.ResponseCurve).Output()
 	if err != nil {
         logMessage(int32(projectIdInt), -1, fmt.Sprintf("error creating hdr file for image %s, project %s", imageName, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
