@@ -436,7 +436,7 @@ func UploadImagesToServer(c *gin.Context) {
 	}
 
 	// create hdr file
-    out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName).Output()
+    out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName, "insta360-melbourne.rsp").Output()
 	if err != nil {
         logMessage(int32(projectIdInt), -1, fmt.Sprintf("error creating hdr file for image %s, project %s", imageName, projectId))
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{

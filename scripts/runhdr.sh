@@ -2,6 +2,7 @@
 
 # takes one argument, the directory name holding the bracketed image set
 set viewpoint = $1
+set responseCurve = $3
 
 set fullpath = /tmp/hdrgen/$viewpoint
 # set fullpath = /dev/shm/hdrgen/$1
@@ -44,7 +45,8 @@ echo DONE getting exif data.
 
 echo Starting hdrgen for $viewpoint ...
 #hdrgen $fullpath/*.jpg -r $fullpath/responseCurve.cam -o $fullpath/pic/$viewpoint.pic
-hdrgen $fullpath/*.jpg -r $fullpath/insta360-melbourne.rsp -o $fullpath/pic/$viewpoint.pic
+#hdrgen $fullpath/*.jpg -r $fullpath/insta360-melbourne.rsp -o $fullpath/pic/$viewpoint.pic
+hdrgen $fullpath/*.jpg -r $fullpath/$responseCurve -o $fullpath/pic/$viewpoint.pic
 rm $fullpath/*.jpg
 echo DONE generating hdr.
 
