@@ -6,4 +6,5 @@ type Project struct {
 	Name     string `json:"Name,omitempty" gorm:"column:Name"`
 	Location string `json:"Location,omitempty" gorm:"column:Location"`
 	Camera   string `json:"Camera,omitempty" gorm:"column:Camera"`
+	ResponseCurve   string `json:"ResponseCurve,omitempty" gorm:"column:ResponseCurve"`
 }
