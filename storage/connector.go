@@ -56,6 +56,21 @@ func ConnectToStorageContainer(accountName, accountKey string) azblob.ContainerC
 	return container
 }
 
+func DeleteFileInBlobStore(fileName string) bool {
+	container := ConnectToStorageContainer(accountName, accountKey)
+
+	// Create a new BlockBlobClient from the ContainerClient
+	blockBlob := container.NewBlockBlobClient(fileName)
+
+	_, err := blockBlob.Delete(context.TODO(), nil)
+	if err != nil {
+		log.Println(err)
+        return false
+	} else {
+        return true
+    }
+}
+
 func UploadFileToBlobStore(fileName, directory string, uuidRequired bool) string {
 	container := ConnectToStorageContainer(accountName, accountKey)
 

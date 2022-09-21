@@ -1129,3 +1129,61 @@ func logMessage(projectId, imageId int32, message string) string {
 		return "messaged was not logged..."
     }
 }
+
+func DeleteProjectByNumber(c *gin.Context) {
+	projectNumber := c.Params.ByName("projectNumber")
+	var project models.Project
+
+    // get project ID
+	if result := database.DB.Where("Number = ?", projectNumber).Find(&project); result.Error != nil {
+        logMessage(-1, -1, fmt.Sprintf("Project with project number : %s cannot be found on delete.", projectNumber))
+	}
+
+    if project.Number == "" {
+        c.JSON(http.StatusOK, gin.H{
+            "message": "project doesnt exist",
+        })
+        return
+    }
+
+    // get list of images from DB
+
+	var images []models.Image
+
+	// get list of images with projectId
+	if result := database.DB.Where("ProjectId = ? ", project.Id).Find(&images); result.Error != nil {
+        logMessage(project.Id, -1, "Could not get images for project.")
+		c.AbortWithStatus(http.StatusNotFound)
+
+		cleanup(tmpDirName)
+		return
+	}
+
+    fmt.Println(images)
+
+
+    // remove images from blob storage
+    for _, image := range images {
+        _ = storage.DeleteFileInBlobStore(image.Name)
+    }
+    // remove records from images
+
+	var image models.Image
+    if result := database.DB.Where("ProjectId = ? ", project.Id).Delete(&image); result.Error != nil {
+        logMessage(project.Id, -1, "Could not remove images for project from DB.")
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+    // remove records from projects
+
+    if result := database.DB.Where("Id = ? ", project.Id).Delete(&project); result.Error != nil {
+        logMessage(project.Id, -1, "Could not remove project from DB.")
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": fmt.Sprintf("project with project number: %s deletion complete.", project.Number),
+    })
+}

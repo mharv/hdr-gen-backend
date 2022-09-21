@@ -153,6 +153,12 @@ var routes = Routes{
 		"/falseColour/:projectId/:imageName",
 		handlers.FalseColour,
 	},
+	{
+		"DeleteProjectByNumber",
+		http.MethodGet,
+		"/deleteProjectByNumber/:projectNumber",
+		handlers.DeleteProjectByNumber,
+	},
 	//test routes
 	{
 		"Rtrace",
