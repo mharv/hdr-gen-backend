@@ -88,7 +88,6 @@ func UploadResponseCurve(c *gin.Context) {
 
     // do some cleaning of filename here... adjust responseCurve file and display names.
 
-    // do some filename renaming here
 	os.MkdirAll(tmpDirName, os.ModePerm)
 
     if err := c.SaveUploadedFile(files[0], tmpDirName+files[0].Filename); err != nil {
@@ -98,10 +97,6 @@ func UploadResponseCurve(c *gin.Context) {
         cleanup(tmpDirName)
         return
     }
-
-    // store in blob here......! TODO
-
-	_ = storage.UploadFileToBlobStore(responseCurve.FileName, tmpDirName, false)
 
     // check if response curve exists
 	var exists bool
@@ -117,6 +112,10 @@ func UploadResponseCurve(c *gin.Context) {
 
 	if !exists {
 		fmt.Println("response curve does not exist... saving now.")
+
+        // store in blob here......!
+        _ = storage.UploadFileToBlobStore(responseCurve.FileName, tmpDirName, false)
+
 		if result := database.DB.Create(&responseCurve); result.Error != nil {
         logMessage(-1, -1, "Error response curve in DB.")
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
