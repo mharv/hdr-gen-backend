@@ -66,7 +66,69 @@ func GetResponseCurves(c *gin.Context) {
 }
 
 func UploadResponseCurve(c *gin.Context) {
-	c.JSON(http.StatusOK, "response curve upload endpoint")
+
+	var responseCurve models.Responsecurve
+
+
+
+	form, err := c.MultipartForm()
+	if err != nil {
+        logMessage(-1, -1, fmt.Sprintf("get form err: %s", "uploading response curve"))
+		c.String(http.StatusBadRequest, "get form err: %s", err.Error())
+		cleanup(tmpDirName)
+		return
+	}
+
+	files := form.File["files"]
+    fmt.Printf("filename: %s \n", files[0].Filename)
+
+
+    responseCurve.FileName = files[0].Filename
+    responseCurve.DisplayName = strings.Split(responseCurve.FileName, ".")[0]
+
+    // do some filename renaming here
+	os.MkdirAll(tmpDirName, os.ModePerm)
+
+    if err := c.SaveUploadedFile(files[0], tmpDirName+files[0].Filename); err != nil {
+        logMessage(-1, -1, "error uploading reponse curve file to tmp filesystem for project")
+        c.String(http.StatusBadRequest, "upload file err: %s", err.Error())
+
+        cleanup(tmpDirName)
+        return
+    }
+
+    // store in blob here......! TODO
+
+    // check if response curve exists
+	var exists bool
+	err = database.DB.Model(responseCurve).
+		Select("count(*) > 0").
+		Where("FileName = ?", responseCurve.FileName).
+		Find(&exists).
+		Error
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	if !exists {
+		fmt.Println("response curve does not exist... saving now.")
+		if result := database.DB.Create(&responseCurve); result.Error != nil {
+        logMessage(-1, -1, "Error response curve in DB.")
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"message": result.Error.Error(),
+				"step":    "problem with db write",
+			})
+		} else {
+			c.JSON(http.StatusOK, responseCurve)
+		}
+	} else {
+		fmt.Println("response curve exists... doing nothing.")
+        logMessage(-1, -1, fmt.Sprintf("response curve with filename %s already exists.", responseCurve.FileName))
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+			"message": fmt.Sprintf("response curve with filename %s already exists.", responseCurve.FileName),
+		})
+	}
 }
 
 func PostProject(c *gin.Context) {
