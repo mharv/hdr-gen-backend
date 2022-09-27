@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+    "github.com/kennygrant/sanitize"
 
 	"encoding/base64"
 
@@ -69,8 +70,6 @@ func UploadResponseCurve(c *gin.Context) {
 
 	var responseCurve models.Responsecurve
 
-
-
 	form, err := c.MultipartForm()
 	if err != nil {
         logMessage(-1, -1, fmt.Sprintf("get form err: %s", "uploading response curve"))
@@ -82,15 +81,31 @@ func UploadResponseCurve(c *gin.Context) {
 	files := form.File["files"]
     fmt.Printf("filename: %s \n", files[0].Filename)
 
+    fileSplitSplice := strings.Split(files[0].Filename, ".")
 
-    responseCurve.FileName = files[0].Filename
-    responseCurve.DisplayName = strings.Split(responseCurve.FileName, ".")[0]
+    fileName := fileSplitSplice[0:len(fileSplitSplice)-1]
+    fileExt := fileSplitSplice[len(fileSplitSplice)-1]
+
+    fmt.Println("fileName = " + strings.Join(fileName, ""))
+    fmt.Println("fileExt = " + fileExt)
+
+    if fileExt != "rsp" {
+        logMessage(-1, -1, "error uploading reponse curve file to tmp filesystem for project, wrong extension")
+        c.String(http.StatusBadRequest, "wrong extension for response curve file.. upload file err: %s", err.Error())
+
+        cleanup(tmpDirName)
+        return
+    }
 
     // do some cleaning of filename here... adjust responseCurve file and display names.
+    fileNameSanitized := sanitize.BaseName(strings.Join(fileName, ""))
+
+    responseCurve.FileName = fileNameSanitized + "." + fileExt
+    responseCurve.DisplayName = fileNameSanitized
 
 	os.MkdirAll(tmpDirName, os.ModePerm)
 
-    if err := c.SaveUploadedFile(files[0], tmpDirName+files[0].Filename); err != nil {
+    if err := c.SaveUploadedFile(files[0], tmpDirName+responseCurve.FileName); err != nil {
         logMessage(-1, -1, "error uploading reponse curve file to tmp filesystem for project")
         c.String(http.StatusBadRequest, "upload file err: %s", err.Error())
 
