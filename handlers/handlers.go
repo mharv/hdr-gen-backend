@@ -54,6 +54,21 @@ func GetProjects(c *gin.Context) {
 	}
 }
 
+func GetResponseCurves(c *gin.Context) {
+	var responseCurves []models.Responsecurve
+
+	if result := database.DB.Find(&responseCurves); result.Error != nil {
+        logMessage(-1, -1, "Response curves could not be loaded.")
+		c.AbortWithStatus(http.StatusNotFound)
+	} else {
+		c.JSON(http.StatusOK, responseCurves)
+	}
+}
+
+func UploadResponseCurve(c *gin.Context) {
+	c.JSON(http.StatusOK, "response curve upload endpoint")
+}
+
 func PostProject(c *gin.Context) {
 	var project models.Project
 	c.BindJSON(&project)

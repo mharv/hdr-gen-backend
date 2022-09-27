@@ -159,6 +159,20 @@ var routes = Routes{
 		"/deleteProjectByNumber/:projectNumber",
 		handlers.DeleteProjectByNumber,
 	},
+
+	{
+		"GetResponseCurves",
+		http.MethodGet,
+		"/getResponseCurves",
+		handlers.GetResponseCurves,
+	},
+
+	{
+		"UploadResponseCurve",
+		http.MethodGet,
+		"/uploadResponseCurve",
+		handlers.UploadResponseCurve,
+	},
 	//test routes
 	{
 		"Rtrace",
