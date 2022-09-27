@@ -86,6 +86,8 @@ func UploadResponseCurve(c *gin.Context) {
     responseCurve.FileName = files[0].Filename
     responseCurve.DisplayName = strings.Split(responseCurve.FileName, ".")[0]
 
+    // do some cleaning of filename here... adjust responseCurve file and display names.
+
     // do some filename renaming here
 	os.MkdirAll(tmpDirName, os.ModePerm)
 
@@ -98,6 +100,8 @@ func UploadResponseCurve(c *gin.Context) {
     }
 
     // store in blob here......! TODO
+
+	_ = storage.UploadFileToBlobStore(responseCurve.FileName, tmpDirName, false)
 
     // check if response curve exists
 	var exists bool
