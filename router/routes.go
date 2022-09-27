@@ -169,7 +169,7 @@ var routes = Routes{
 
 	{
 		"UploadResponseCurve",
-		http.MethodGet,
+		http.MethodPost,
 		"/uploadResponseCurve",
 		handlers.UploadResponseCurve,
 	},
