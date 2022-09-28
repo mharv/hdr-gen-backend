@@ -1209,6 +1209,18 @@ func logMessage(projectId, imageId int32, message string) string {
 }
 
 func DeleteProjectByNumber(c *gin.Context) {
+    suppliedPassword := c.Query("password")
+    password := goDotEnvVariable("SECRET")
+
+    if suppliedPassword != password {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "message": "incorrect password for endpoint",
+        })
+        return
+    }
+
+
+
 	projectNumber := c.Params.ByName("projectNumber")
 	var project models.Project
 
