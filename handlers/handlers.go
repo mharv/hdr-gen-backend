@@ -532,21 +532,9 @@ func UploadImagesToServer(c *gin.Context) {
         project.ResponseCurve = "insta360-melbourne.rsp"
     }
 
-
-	// copy response curve to /tmp/hdrgen/{name}
-	responseCurveFileString := "./responseCurves/" + project.ResponseCurve
+    // download response curve fiel to the working directory
 	imageTmpDirString := tmpDirName + imageName
-
-	_, err = exec.Command("cp", responseCurveFileString, imageTmpDirString).Output()
-	if err != nil {
-        logMessage(int32(projectIdInt), -1, fmt.Sprintf("error copying response curve for project %s", projectId))
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": err.Error(),
-		})
-
-		cleanup(tmpDirName)
-		return
-	}
+	storage.DownloadFileToLocalDir(project.ResponseCurve, imageTmpDirString + "/")
 
 	// create hdr file
     out, err := exec.Command("./scripts/runhdr.sh", imageName, tmpDirName, project.ResponseCurve).Output()
@@ -565,11 +553,6 @@ func UploadImagesToServer(c *gin.Context) {
 
 	// store to blob
 	blobFileName := storage.UploadFileToBlobStore(imageName+".hdr", fullPath+"pic/", true)
-
-	// TODO upload can response curve and exif files
-	// TODO upload can response curve and exif files
-	// TODO upload can response curve and exif files
-	// TODO upload can response curve and exif files
 
 	// save to sql db
 	var image models.Image

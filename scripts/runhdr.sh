@@ -46,6 +46,13 @@ echo DONE getting exif data.
 echo Starting hdrgen for $viewpoint ...
 #hdrgen $fullpath/*.jpg -r $fullpath/responseCurve.cam -o $fullpath/pic/$viewpoint.pic
 #hdrgen $fullpath/*.jpg -r $fullpath/insta360-melbourne.rsp -o $fullpath/pic/$viewpoint.pic
+
+if ( -f $fullpath/$responseCurve ) then
+    echo ----------- response curve Exists
+else
+    echo ----------- response curve Does not exist!
+endif
+
 hdrgen $fullpath/*.jpg -r $fullpath/$responseCurve -o $fullpath/pic/$viewpoint.pic
 rm $fullpath/*.jpg
 echo DONE generating hdr.
